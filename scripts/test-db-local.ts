@@ -16,17 +16,18 @@ import sql from 'mssql';
 config({ path: join(__dirname, '../.env.local') });
 
 async function main(): Promise<void> {
-  const { DB_SERVER, DB_PORT, DB_NAME, DB_USER, DB_PASSWORD, DB_TRUST_SERVER_CERTIFICATE } = process.env;
+  const { DB_SERVER_IP, DB_SERVER, DB_PORT, DB_NAME, DB_USER, DB_PASSWORD, DB_TRUST_SERVER_CERTIFICATE } = process.env;
+  const server = DB_SERVER_IP || DB_SERVER;
 
-  if (!DB_SERVER || !DB_NAME || !DB_USER || !DB_PASSWORD) {
-    console.error('Missing DB_SERVER / DB_NAME / DB_USER / DB_PASSWORD — fill in .env.local first.');
+  if (!server || !DB_NAME || !DB_USER || !DB_PASSWORD) {
+    console.error('Missing DB_SERVER / DB_SERVER_IP / DB_NAME / DB_USER / DB_PASSWORD — fill in .env.local first.');
     process.exit(1);
   }
 
-  console.log(`Connecting to ${DB_SERVER}:${DB_PORT ?? 1433}/${DB_NAME} as ${DB_USER}...`);
+  console.log(`Connecting to ${server}:${DB_PORT ?? 1433}/${DB_NAME} as ${DB_USER}...`);
 
   const pool = await sql.connect({
-    server: DB_SERVER,
+    server,
     port: DB_PORT ? Number(DB_PORT) : 1433,
     database: DB_NAME,
     user: DB_USER,
