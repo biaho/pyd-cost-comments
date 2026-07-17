@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getPool } from '@/lib/db';
-import { resolveMockIdentity } from '@/lib/mock-auth';
-import { resolveUser } from '@/lib/comments';
-import { logTranscriptionUsage } from '@/lib/usage-log';
+import { resolveIdentity } from '@/lib/auth';
+import { resolveUser, logTranscriptionUsage } from '@/lib/data-api-client';
 import { computeElevenLabsSttCost } from '@/lib/pricing';
 
 // Same model as pyd-audio-studio's elevenlabs-stt function, same account.
@@ -20,7 +18,6 @@ export async function POST(req: NextRequest) {
 
     const formData = await req.formData();
     const audioFile = formData.get('audio');
-    const asUser = formData.get('asUser');
 
     if (!(audioFile instanceof Blob)) {
       return NextResponse.json({ error: 'Falta el archivo de audio.' }, { status: 400 });
@@ -47,13 +44,12 @@ export async function POST(req: NextRequest) {
 
     // Usage logging is best-effort -- a logging failure must never block returning the transcript.
     try {
-      const pool = await getPool();
-      const identity = resolveMockIdentity(typeof asUser === 'string' ? asUser : null);
-      const appUserKey = await resolveUser(pool, identity);
+      const identity = await resolveIdentity(req);
+      const appUserKey = await resolveUser(identity);
       const characters = text.length;
       const durationSecondsEst = audioFile.size / 16000; // rough estimate, matches pyd-audio-studio
 
-      await logTranscriptionUsage(pool, {
+      await logTranscriptionUsage({
         appUserKey,
         characters,
         durationSecondsEst,

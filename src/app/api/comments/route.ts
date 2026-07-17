@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getPool } from '@/lib/db';
 import { parseContext, ContextValidationError } from '@/lib/context';
-import { resolveMockIdentity } from '@/lib/mock-auth';
-import { resolveReport, resolveUser, loadComments, saveComment, softDeleteComment, type CommentRow } from '@/lib/comments';
+import { resolveIdentity, AuthError } from '@/lib/auth';
+import { resolveReport, resolveUser, loadComments, saveComment, softDeleteComment, type CommentRow } from '@/lib/data-api-client';
 
 function withOwnership(comments: CommentRow[], currentUserKey: number) {
   return comments.map(({ appUserKey, ...rest }) => ({ ...rest, isOwnComment: appUserKey === currentUserKey }));
@@ -12,16 +11,18 @@ function withOwnership(comments: CommentRow[], currentUserKey: number) {
 export async function GET(req: NextRequest) {
   try {
     const context = parseContext(req.nextUrl.searchParams);
-    const identity = resolveMockIdentity(req.nextUrl.searchParams.get('asUser'));
+    const identity = await resolveIdentity(req);
 
-    const pool = await getPool();
-    const reportKey = await resolveReport(pool, context.reportId, context.reportName);
-    const appUserKey = await resolveUser(pool, identity); // FR: resolve/create local user record even on view-only load
+    const reportKey = await resolveReport(context.reportId, context.reportName);
+    const appUserKey = await resolveUser(identity); // FR: resolve/create local user record even on view-only load
 
-    const comments = await loadComments(pool, reportKey, context.productId);
+    const comments = await loadComments(reportKey, context.productId);
 
     return NextResponse.json({ context, viewingAs: identity.displayName, comments: withOwnership(comments, appUserKey) });
   } catch (err) {
+    if (err instanceof AuthError) {
+      return NextResponse.json({ error: err.message }, { status: 401 });
+    }
     if (err instanceof ContextValidationError) {
       return NextResponse.json({ error: err.message }, { status: 400 });
     }
@@ -35,18 +36,17 @@ export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
     const context = parseContext(body);
-    const identity = resolveMockIdentity(body.asUser ?? null);
+    const identity = await resolveIdentity(req);
 
     const commentText = typeof body.commentText === 'string' ? body.commentText.trim() : '';
     if (!commentText) {
       return NextResponse.json({ error: 'Falta el campo obligatorio: commentText' }, { status: 400 });
     }
 
-    const pool = await getPool();
-    const reportKey = await resolveReport(pool, context.reportId, context.reportName);
-    const appUserKey = await resolveUser(pool, identity);
+    const reportKey = await resolveReport(context.reportId, context.reportName);
+    const appUserKey = await resolveUser(identity);
 
-    const commentEntryKey = await saveComment(pool, {
+    const commentEntryKey = await saveComment({
       reportKey,
       productId: context.productId,
       productName: context.productName,
@@ -57,10 +57,13 @@ export async function POST(req: NextRequest) {
       commentText,
     });
 
-    const comments = await loadComments(pool, reportKey, context.productId);
+    const comments = await loadComments(reportKey, context.productId);
 
     return NextResponse.json({ commentEntryKey, comments: withOwnership(comments, appUserKey) }, { status: 201 });
   } catch (err) {
+    if (err instanceof AuthError) {
+      return NextResponse.json({ error: err.message }, { status: 401 });
+    }
     if (err instanceof ContextValidationError) {
       return NextResponse.json({ error: err.message }, { status: 400 });
     }
@@ -70,31 +73,33 @@ export async function POST(req: NextRequest) {
 }
 
 // Soft-delete: hide a comment from the shared view. Only the author can hide their own
-// (enforced in the SQL WHERE clause, not just here). Row stays in the DB for audit.
+// (enforced in the on-prem API's SQL WHERE clause, not just here). Row stays in the DB for audit.
 export async function DELETE(req: NextRequest) {
   try {
     const body = await req.json();
     const context = parseContext(body);
-    const identity = resolveMockIdentity(body.asUser ?? null);
+    const identity = await resolveIdentity(req);
     const commentEntryKey = Number(body.commentEntryKey);
 
     if (!commentEntryKey) {
       return NextResponse.json({ error: 'Falta el campo obligatorio: commentEntryKey' }, { status: 400 });
     }
 
-    const pool = await getPool();
-    const reportKey = await resolveReport(pool, context.reportId, context.reportName);
-    const appUserKey = await resolveUser(pool, identity);
+    const reportKey = await resolveReport(context.reportId, context.reportName);
+    const appUserKey = await resolveUser(identity);
 
-    const deleted = await softDeleteComment(pool, commentEntryKey, appUserKey);
+    const deleted = await softDeleteComment(commentEntryKey, appUserKey);
     if (!deleted) {
       return NextResponse.json({ error: 'Comentario no encontrado, ya eliminado, o no pertenece a este usuario.' }, { status: 403 });
     }
 
-    const comments = await loadComments(pool, reportKey, context.productId);
+    const comments = await loadComments(reportKey, context.productId);
 
     return NextResponse.json({ comments: withOwnership(comments, appUserKey) });
   } catch (err) {
+    if (err instanceof AuthError) {
+      return NextResponse.json({ error: err.message }, { status: 401 });
+    }
     if (err instanceof ContextValidationError) {
       return NextResponse.json({ error: err.message }, { status: 400 });
     }

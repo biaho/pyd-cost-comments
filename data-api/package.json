@@ -1,0 +1,23 @@
+{
+  "name": "pyd-cost-comments-data-api",
+  "version": "0.1.0",
+  "private": true,
+  "description": "On-prem Data API for pyd-cost-comments — the only thing in PYD's domain that talks to SQL Server. Fronted by Tailscale Funnel; called by the Render-hosted Next.js app over HTTPS.",
+  "scripts": {
+    "dev": "tsx watch src/server.ts",
+    "build": "tsc",
+    "start": "node dist/server.js"
+  },
+  "dependencies": {
+    "dotenv": "^17.4.2",
+    "express": "^5.1.0",
+    "mssql": "^12.7.0"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.5",
+    "@types/mssql": "^12.3.0",
+    "@types/node": "^20",
+    "tsx": "^4.23.1",
+    "typescript": "^5"
+  }
+}

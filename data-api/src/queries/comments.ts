@@ -1,5 +1,10 @@
 import type { ConnectionPool } from 'mssql';
-import type { MockIdentity } from './mock-auth';
+
+export interface Identity {
+  entraObjectId: string;
+  userPrincipalName: string;
+  displayName: string;
+}
 
 export interface CommentRow {
   commentEntryKey: number;
@@ -33,7 +38,7 @@ export async function resolveReport(pool: ConnectionPool, reportId: string, repo
 }
 
 /** Resolve FR: find app_user by entra_object_id, create on first login, else bump last_login_at_utc. */
-export async function resolveUser(pool: ConnectionPool, identity: MockIdentity): Promise<number> {
+export async function resolveUser(pool: ConnectionPool, identity: Identity): Promise<number> {
   const existing = await pool
     .request()
     .input('entraObjectId', identity.entraObjectId)

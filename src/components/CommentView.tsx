@@ -6,12 +6,12 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "@/components/ui/sonner";
 import { VoiceRecorderControls, type VoiceStage } from "@/components/VoiceRecorderControls";
 import { transcribeAudio } from "@/lib/transcription";
+import { useAuthToken } from "@/lib/use-auth-token";
 import {
   MessageSquareText,
   FileText,
@@ -53,16 +53,10 @@ interface ApiResponse {
   comments: ApiComment[];
 }
 
-const MOCK_USERS = [
-  { key: "manuelsa", label: "Manuel Sanchez (simulado)" },
-  { key: "testuser2", label: "Test User 2 (simulado)" },
-];
-
 type ComposerMode = "type" | "record";
 
 function initials(name: string): string {
   return name
-    .replace(/\(simulado\)/i, "")
     .trim()
     .split(/\s+/)
     .map((p) => p[0])
@@ -82,8 +76,8 @@ export function CommentView() {
   const searchParams = useSearchParams();
   const reportId = searchParams.get("reportId");
   const productId = searchParams.get("productId");
+  const getToken = useAuthToken();
 
-  const [asUser, setAsUser] = useState("manuelsa");
   const [data, setData] = useState<ApiResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -101,11 +95,7 @@ export function CommentView() {
   const chunksRef = useRef<Blob[]>([]);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  const buildParams = useCallback(() => {
-    const params = new URLSearchParams(searchParams.toString());
-    params.set("asUser", asUser);
-    return params;
-  }, [searchParams, asUser]);
+  const buildParams = useCallback(() => new URLSearchParams(searchParams.toString()), [searchParams]);
 
   const load = useCallback(async () => {
     if (!reportId || !productId) {
@@ -115,7 +105,10 @@ export function CommentView() {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(`/api/comments?${buildParams().toString()}`);
+      const token = await getToken();
+      const res = await fetch(`/api/comments?${buildParams().toString()}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
       const body = await res.json();
       if (!res.ok) throw new Error(body.error ?? "Error al cargar los comentarios.");
       setData(body);
@@ -124,7 +117,7 @@ export function CommentView() {
     } finally {
       setLoading(false);
     }
-  }, [reportId, productId, buildParams]);
+  }, [reportId, productId, buildParams, getToken]);
 
   useEffect(() => {
     load();
@@ -162,7 +155,8 @@ export function CommentView() {
         setVoiceStage("processing");
         const blob = new Blob(chunksRef.current, { type: "audio/webm" });
         try {
-          const text = await transcribeAudio(blob, asUser);
+          const token = await getToken();
+          const text = await transcribeAudio(blob, token);
           setCommentText(text);
           setVoiceStage("review");
         } catch (err) {
@@ -203,9 +197,10 @@ export function CommentView() {
     if (!trimmed) return;
     setSubmitting(true);
     try {
+      const token = await getToken();
       const res = await fetch("/api/comments", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({ ...Object.fromEntries(buildParams()), commentText: trimmed }),
       });
       const body = await res.json();
@@ -223,9 +218,10 @@ export function CommentView() {
   const handleRemove = async (commentEntryKey: number) => {
     setRemovingKey(commentEntryKey);
     try {
+      const token = await getToken();
       const res = await fetch("/api/comments", {
         method: "DELETE",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({ ...Object.fromEntries(buildParams()), commentEntryKey }),
       });
       const body = await res.json();
@@ -271,23 +267,6 @@ export function CommentView() {
           <div className="flex items-center gap-2 min-w-0">
             <MessageSquareText className="h-5 w-5 text-primary shrink-0" />
             <span className="font-semibold text-sm sm:text-base truncate">PYD Cost Comments</span>
-          </div>
-          <div className="flex items-center gap-2 shrink-0">
-            <Badge variant="outline" className="hidden sm:inline-flex text-[10px] uppercase tracking-wider">
-              modo dev
-            </Badge>
-            <select
-              value={asUser}
-              onChange={(e) => setAsUser(e.target.value)}
-              className="h-9 rounded-md border border-input bg-secondary/50 px-2 text-xs sm:text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-              aria-label="Viendo como (identidad simulada, temporal hasta decidir el mecanismo de autenticación)"
-            >
-              {MOCK_USERS.map((u) => (
-                <option key={u.key} value={u.key}>
-                  {u.label}
-                </option>
-              ))}
-            </select>
           </div>
         </div>
       </header>

@@ -73,7 +73,7 @@ function usernameFromRow(r: UsageRow): string {
   return `user-${r.userId}`;
 }
 
-export function useAdminUsage(filters: Filters, asUser: string) {
+export function useAdminUsage(filters: Filters, getToken: () => Promise<string>) {
   const [rows, setRows] = useState<UsageRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -84,11 +84,14 @@ export function useAdminUsage(filters: Filters, asUser: string) {
     setError(null);
     try {
       const { start, end } = rangeBounds(filters);
-      const params = new URLSearchParams({ asUser });
+      const params = new URLSearchParams();
       if (start) params.set("start", start.toISOString());
       if (end) params.set("end", end.toISOString());
 
-      const res = await fetch(`/api/admin/usage-log?${params.toString()}`);
+      const token = await getToken();
+      const res = await fetch(`/api/admin/usage-log?${params.toString()}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
       const body = await res.json();
 
       if (res.status === 403) {
@@ -105,7 +108,7 @@ export function useAdminUsage(filters: Filters, asUser: string) {
     } finally {
       setLoading(false);
     }
-  }, [filters.range, filters.customStart, filters.customEnd, asUser]);
+  }, [filters.range, filters.customStart, filters.customEnd, getToken]);
 
   useEffect(() => {
     fetchData();

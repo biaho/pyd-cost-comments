@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useAdminUsage, type Filters, type RangeKey, type UsageRow } from "@/hooks/use-admin-usage";
+import { useAuthToken } from "@/lib/use-auth-token";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -14,14 +15,6 @@ import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxi
 import { ArrowLeft, BarChart3, Calendar, Loader2, Users, X, ChevronDown, RefreshCw, ShieldAlert } from "lucide-react";
 import { format, formatDistanceToNow, parseISO } from "date-fns";
 import { es } from "date-fns/locale";
-
-// Dev-mode identity switcher, same mock identities as CommentView -- swap for
-// real Entra ID SSO later (see src/lib/mock-auth.ts, src/lib/admin.ts).
-const IDENTITY_OPTIONS = [
-  { key: "aitor", label: "Aitor (admin)" },
-  { key: "manuelsa", label: "Manuel Sanchez" },
-  { key: "testuser2", label: "Test User 2" },
-];
 
 const CALL_TYPE_LABELS: Record<string, string> = {
   stt: "Voz a Texto",
@@ -55,7 +48,7 @@ export function AdminUsageView() {
   const router = useRouter();
   const params = useSearchParams();
   const [detailRow, setDetailRow] = useState<UsageRow | null>(null);
-  const [asUser, setAsUser] = useState("aitor");
+  const getToken = useAuthToken();
 
   const filters: Filters = useMemo(
     () => ({
@@ -86,7 +79,7 @@ export function AdminUsageView() {
     updateParam({ [paramKey]: next });
   };
 
-  const usage = useAdminUsage(filters, asUser);
+  const usage = useAdminUsage(filters, getToken);
 
   if (usage.forbidden) {
     return (
@@ -95,23 +88,9 @@ export function AdminUsageView() {
           <ShieldAlert className="h-8 w-8 text-destructive mx-auto" />
           <h1 className="text-lg font-bold text-foreground">Acceso denegado</h1>
           <p className="text-sm text-muted-foreground">Esta página solo es accesible para administradores.</p>
-          <div className="flex items-center justify-center gap-2">
-            <select
-              value={asUser}
-              onChange={(e) => setAsUser(e.target.value)}
-              className="h-9 rounded-md border border-input bg-secondary/50 px-2 text-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-              aria-label="Viendo como (identidad simulada)"
-            >
-              {IDENTITY_OPTIONS.map((u) => (
-                <option key={u.key} value={u.key}>
-                  {u.label}
-                </option>
-              ))}
-            </select>
-            <Button onClick={() => router.push("/")} variant="outline">
-              Volver
-            </Button>
-          </div>
+          <Button onClick={() => router.push("/")} variant="outline">
+            Volver
+          </Button>
         </div>
       </div>
     );
@@ -136,18 +115,6 @@ export function AdminUsageView() {
             <h1 className="text-2xl font-bold tracking-tight font-mono text-foreground">Uso de API</h1>
           </div>
           <div className="flex items-center gap-2">
-            <select
-              value={asUser}
-              onChange={(e) => setAsUser(e.target.value)}
-              className="h-8 rounded-md border border-input bg-secondary/50 px-2 text-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-              aria-label="Viendo como (identidad simulada, temporal hasta decidir el mecanismo de autenticación)"
-            >
-              {IDENTITY_OPTIONS.map((u) => (
-                <option key={u.key} value={u.key}>
-                  {u.label}
-                </option>
-              ))}
-            </select>
             <Button variant="ghost" size="icon" onClick={() => usage.refetch()} disabled={usage.loading}>
               <RefreshCw className={`h-4 w-4 ${usage.loading ? "animate-spin" : ""}`} />
             </Button>

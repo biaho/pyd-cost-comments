@@ -5,7 +5,7 @@ let pool: sql.ConnectionPool | null = null;
 export async function getPool(): Promise<sql.ConnectionPool> {
   if (pool) return pool;
 
-  const server = process.env.DB_SERVER_IP || process.env.DB_SERVER;
+  const server = process.env.DB_SERVER;
   if (!server || !process.env.DB_NAME || !process.env.DB_USER || !process.env.DB_PASSWORD) {
     throw new Error('Missing DB_SERVER / DB_NAME / DB_USER / DB_PASSWORD env vars.');
   }
