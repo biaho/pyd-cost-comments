@@ -1,36 +1,33 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# pyd-cost-comments
 
-## Getting Started
+TARGIT cost-comment annotation app for Perfuydisen (PYD). Business users viewing a
+product cost report in TARGIT (BI tool over an OLAP cube) click through to this app
+to add a typed or voice comment explaining a cost deviation — keyed to the report's
+business dimensions (product, cost type, period, region). TARGIT's own nightly
+ETL/cube refresh picks up the comment as a new column the next day.
 
-First, run the development server:
+Full spec, architecture decisions, and status: see the engagement's vault index
+(`02_AI_Agent/clients/PYD/pyd-cost-comments/_INDEX.md`) — this repo is the code,
+the vault is the source of truth for decisions/history.
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+## Stack
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+- Next.js (App Router, TypeScript, Tailwind) — frontend + API routes in one deployable
+- `mssql` — server-side only, talks to PYD's on-prem SQL Server (never exposed to the client)
+- MSAL (`@azure/msal-browser` + `@azure/msal-react`) — Entra ID SSO, single-tenant
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Next.js was chosen over Vite (the `pyd-audio-studio` precedent) because the deploy
+target (our Vercel vs. PYD's Azure) isn't settled yet and this app needs a real
+backend to hold the SQL Server credentials — Next.js API routes run natively on
+Vercel and deploy just as well to Azure App Service, so the choice doesn't lock in
+the deploy decision.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Local dev
 
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+1. `npm install`
+2. Copy `.env.local.example` → `.env.local`, fill in the on-prem DB connection
+   details and the Entra ID App Registration values.
+3. Connect to PYD's VPN (needed to reach the on-prem SQL Server).
+4. `npm run test:db` — proves the DB connection works before building anything
+   against it.
+5. `npm run dev` — starts the app at http://localhost:3000.
