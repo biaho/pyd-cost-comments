@@ -7,7 +7,9 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test:db": "tsx scripts/test-db-local.ts"
+    "test:db": "tsx scripts/test-db-local.ts",
+    "migrate": "tsx scripts/run-migration.ts",
+    "simulate": "tsx scripts/simulate-call.ts"
   },
   "dependencies": {
     "@azure/msal-browser": "^5.17.1",
