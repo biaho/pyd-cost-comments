@@ -26,8 +26,8 @@ export function parseContext(params: URLSearchParams | Record<string, string | n
   const reportId = get('reportId');
   const productId = get('productId');
 
-  if (!reportId) throw new ContextValidationError('Missing required parameter: reportId');
-  if (!productId) throw new ContextValidationError('Missing required parameter: productId');
+  if (!reportId) throw new ContextValidationError('Falta el parámetro obligatorio: reportId');
+  if (!productId) throw new ContextValidationError('Falta el parámetro obligatorio: productId');
 
   return {
     reportId,

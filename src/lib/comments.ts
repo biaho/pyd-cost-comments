@@ -7,6 +7,7 @@ export interface CommentRow {
   createdAtUtc: string;
   authorDisplayName: string | null;
   authorUserPrincipalName: string | null;
+  appUserKey: number;
 }
 
 /** Resolve FR: find dim_report by reportId, create it if this is the first time we see it. */
@@ -72,6 +73,7 @@ export async function loadComments(pool: ConnectionPool, reportKey: number, prod
          c.comment_entry_key,
          c.comment_text,
          c.created_at_utc,
+         c.app_user_key,
          u.display_name,
          u.user_principal_name
        FROM comment_entry c
@@ -88,6 +90,7 @@ export async function loadComments(pool: ConnectionPool, reportKey: number, prod
     createdAtUtc: r.created_at_utc,
     authorDisplayName: r.display_name,
     authorUserPrincipalName: r.user_principal_name,
+    appUserKey: r.app_user_key,
   }));
 }
 
@@ -122,4 +125,25 @@ export async function saveComment(pool: ConnectionPool, params: SaveCommentParam
     );
 
   return result.recordset[0].comment_entry_key as number;
+}
+
+/**
+ * Soft-delete: only the comment's own author may hide it (ownership checked
+ * in the WHERE clause, not just the app layer). Row stays in the DB for
+ * audit -- this is a UI-level "hide from view", not an actual delete.
+ */
+export async function softDeleteComment(pool: ConnectionPool, commentEntryKey: number, requestingUserKey: number): Promise<boolean> {
+  const result = await pool
+    .request()
+    .input('commentEntryKey', commentEntryKey)
+    .input('requestingUserKey', requestingUserKey)
+    .query(
+      `UPDATE comment_entry
+       SET is_deleted = 1, deleted_at_utc = SYSUTCDATETIME(), deleted_by_user_key = @requestingUserKey
+       WHERE comment_entry_key = @commentEntryKey
+         AND app_user_key = @requestingUserKey
+         AND is_deleted = 0`
+    );
+
+  return result.rowsAffected[0] > 0;
 }
