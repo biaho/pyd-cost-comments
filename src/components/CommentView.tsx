@@ -11,7 +11,7 @@ import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "@/components/ui/sonner";
 import { VoiceRecorderControls, type VoiceStage } from "@/components/VoiceRecorderControls";
-import { transcribeAudio } from "@/lib/mock-transcription";
+import { transcribeAudio } from "@/lib/transcription";
 import {
   MessageSquareText,
   FileText,
@@ -161,9 +161,14 @@ export function CommentView() {
         streamRef.current = null;
         setVoiceStage("processing");
         const blob = new Blob(chunksRef.current, { type: "audio/webm" });
-        const text = await transcribeAudio(blob);
-        setCommentText(text);
-        setVoiceStage("review");
+        try {
+          const text = await transcribeAudio(blob, asUser);
+          setCommentText(text);
+          setVoiceStage("review");
+        } catch (err) {
+          setVoiceError(err instanceof Error ? err.message : "Error al transcribir el audio.");
+          setVoiceStage("idle");
+        }
       };
       mediaRecorderRef.current = recorder;
       recorder.start();
