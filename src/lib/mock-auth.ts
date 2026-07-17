@@ -24,6 +24,11 @@ const MOCK_USERS: Record<string, MockIdentity> = {
     userPrincipalName: 'testuser2@pyd.es',
     displayName: 'Test User 2 (mock)',
   },
+  aitor: {
+    entraObjectId: 'mock-aitor-0003',
+    userPrincipalName: 'aitor@pyd.es',
+    displayName: 'Aitor (mock, admin)',
+  },
 };
 
 export function resolveMockIdentity(asUser: string | null): MockIdentity {

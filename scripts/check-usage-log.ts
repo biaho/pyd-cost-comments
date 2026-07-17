@@ -5,12 +5,20 @@ import sql from 'mssql';
 config({ path: join(__dirname, '../.env.local') });
 
 async function main() {
+  const { DB_SERVER_IP, DB_SERVER, DB_PORT, DB_NAME, DB_USER, DB_PASSWORD } = process.env;
+  const server = DB_SERVER_IP || DB_SERVER;
+
+  if (!server || !DB_NAME || !DB_USER || !DB_PASSWORD) {
+    console.error('Missing DB_SERVER / DB_SERVER_IP / DB_NAME / DB_USER / DB_PASSWORD — fill in .env.local first.');
+    process.exit(1);
+  }
+
   const pool = await sql.connect({
-    server: process.env.DB_SERVER_IP || process.env.DB_SERVER,
-    port: Number(process.env.DB_PORT ?? 1433),
-    database: process.env.DB_NAME,
-    user: process.env.DB_USER,
-    password: process.env.DB_PASSWORD,
+    server,
+    port: Number(DB_PORT ?? 1433),
+    database: DB_NAME,
+    user: DB_USER,
+    password: DB_PASSWORD,
     options: { trustServerCertificate: true, encrypt: true },
   });
 
