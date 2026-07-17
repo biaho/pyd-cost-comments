@@ -1,10 +1,39 @@
 -- Phase 1 MVP schema for pyd-cost-comments
 -- Source of truth: 02_AI_Agent/clients/PYD/pyd-cost-comments/prompts/schema-blueprint.md
--- Append-only comment history, Entra-authenticated users, minimal report lookup.
--- Do not run against the live DB without explicit sign-off (see session log).
+-- Append-only comment history (soft-delete only), Entra-authenticated users,
+-- controlled report list.
+--
+-- TEST/DEV RUN target: P26AICatalyst (access confirmed 17/07/2026).
+-- PRODUCTION target: P26AICatalyst_Work (access pending) — re-run this same
+-- migration there once access lands. Do not run against either DB without
+-- explicit sign-off.
+--
+-- Deviations from schema-blueprint.md, agreed with MS 17/07/2026:
+--   - dim_report kept as originally specified -- a real master table scales
+--     better than a hardcoded app-side mapping if more reports get added
+--     later, and centralizes is_active/report_name.
+--   - app_user.email dropped (data minimization). It duplicated
+--     user_principal_name in a single-tenant setup; FR3 in the blueprint
+--     already marks author email/username as optional, so
+--     user_principal_name alone satisfies it without storing the same
+--     personal identifier twice.
+--   - app_user.oidc_subject dropped. entra_object_id (the Entra `oid` claim)
+--     is already the stable, tenant-wide unique identifier for this exact
+--     purpose when using Entra ID + MSAL; the separate OIDC `sub` claim is
+--     pairwise/app-scoped and adds nothing here.
+--   - app_user.tenant_id dropped. The App Registration is single-tenant, so
+--     this value is identical on every row -- a constant belongs in app
+--     config (env var), not repeated per-row in the DB.
+--   - comment_entry soft-delete fields (is_deleted/deleted_at_utc/
+--     deleted_by_user_key) reinstated. Initially dropped because no Phase 1
+--     FR requires delete/edit (blueprint defers that to Phase 2) -- but
+--     reconsidered same session: without it, a user who mistypes a comment
+--     has zero recourse, even to hide their own mistake from the shared
+--     view. Deliberate small pull-forward from Phase 2, not a blueprint
+--     compliance gap.
 
 -- ============================================================
--- 1. dim_report — controlled list of the three source reports
+-- 1. dim_report — controlled list of the source reports
 -- ============================================================
 CREATE TABLE dim_report (
     report_key      BIGINT IDENTITY(1,1) NOT NULL,
@@ -24,10 +53,7 @@ GO
 CREATE TABLE app_user (
     app_user_key         BIGINT IDENTITY(1,1) NOT NULL,
     entra_object_id      NVARCHAR(100)  NOT NULL,
-    oidc_subject         NVARCHAR(150)  NULL,
-    tenant_id            NVARCHAR(100)  NOT NULL,
     user_principal_name  NVARCHAR(255)  NULL,
-    email                NVARCHAR(255)  NULL,
     display_name         NVARCHAR(255)  NULL,
     is_active            BIT            NOT NULL CONSTRAINT DF_app_user_is_active DEFAULT (1),
     first_login_at_utc   DATETIME2      NOT NULL CONSTRAINT DF_app_user_first_login DEFAULT (SYSUTCDATETIME()),
@@ -38,7 +64,7 @@ CREATE TABLE app_user (
 GO
 
 -- ============================================================
--- 3. comment_entry — append-only comment history
+-- 3. comment_entry — append-only comment history (soft-delete only)
 -- ============================================================
 CREATE TABLE comment_entry (
     comment_entry_key      BIGINT IDENTITY(1,1) NOT NULL,
@@ -76,12 +102,12 @@ CREATE INDEX IX_comment_entry_user_created
 GO
 
 -- ============================================================
--- Seed: dim_report placeholder rows
--- Report IDs/names not yet confirmed by client — fill in report_id/report_name
--- once TARGIT report details arrive, then uncomment and run.
+-- Seed: dim_report rows
+-- Real report_id codes still pending from client -- names are confirmed.
+-- Fill in report_id once codes arrive, then uncomment and run.
 -- ============================================================
 -- INSERT INTO dim_report (report_id, report_name) VALUES
---     ('R1', '<report 1 name>'),
---     ('R2', '<report 2 name>'),
---     ('R3', '<report 3 name>');
+--     ('<pending>', 'Coste Interno'),
+--     ('<pending>', 'Coste Medio'),
+--     ('<pending>', 'AI Seguimiento coste medio vs interno');
 -- GO
