@@ -9,6 +9,7 @@
 CREATE TABLE transcription_usage_log (
     usage_log_key       BIGINT IDENTITY(1,1) NOT NULL,
     app_user_key         BIGINT          NOT NULL,
+    call_type            NVARCHAR(50)   NOT NULL CONSTRAINT DF_transcription_usage_log_call_type DEFAULT ('stt'),
     characters            INT            NOT NULL CONSTRAINT DF_transcription_usage_log_characters DEFAULT (0),
     duration_seconds_est  DECIMAL(10,2)  NULL,
     cost_usd              DECIMAL(10,6)  NOT NULL CONSTRAINT DF_transcription_usage_log_cost_usd DEFAULT (0),

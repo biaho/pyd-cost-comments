@@ -2,6 +2,7 @@ import type { ConnectionPool } from 'mssql';
 
 export interface TranscriptionUsageParams {
   appUserKey: number;
+  callType?: string;
   characters: number;
   durationSecondsEst?: number;
   costUsd: number;
@@ -12,12 +13,13 @@ export async function logTranscriptionUsage(pool: ConnectionPool, params: Transc
   await pool
     .request()
     .input('appUserKey', params.appUserKey)
+    .input('callType', params.callType ?? 'stt')
     .input('characters', params.characters)
     .input('durationSecondsEst', params.durationSecondsEst ?? null)
     .input('costUsd', params.costUsd)
     .input('model', params.model)
     .query(
-      `INSERT INTO transcription_usage_log (app_user_key, characters, duration_seconds_est, cost_usd, model)
-       VALUES (@appUserKey, @characters, @durationSecondsEst, @costUsd, @model)`
+      `INSERT INTO transcription_usage_log (app_user_key, call_type, characters, duration_seconds_est, cost_usd, model)
+       VALUES (@appUserKey, @callType, @characters, @durationSecondsEst, @costUsd, @model)`
     );
 }
