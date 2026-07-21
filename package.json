@@ -9,7 +9,8 @@
     "lint": "eslint",
     "test:db": "tsx scripts/test-db-local.ts",
     "migrate": "tsx scripts/run-migration.ts",
-    "simulate": "tsx scripts/simulate-call.ts"
+    "simulate": "tsx scripts/simulate-call.ts",
+    "package:onprem": "tsx scripts/package-onprem-deploy.ts"
   },
   "dependencies": {
     "@azure/msal-browser": "^5.17.1",

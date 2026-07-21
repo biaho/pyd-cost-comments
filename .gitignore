@@ -20,6 +20,9 @@
 # production
 /build
 
+# on-prem deploy bundles (scripts/package-onprem-deploy.ts)
+/dist-onprem
+
 # misc
 .DS_Store
 *.pem
