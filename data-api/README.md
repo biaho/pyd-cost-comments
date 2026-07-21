@@ -76,6 +76,7 @@ All require `Authorization: Bearer <DATA_API_KEY>` except `/health`.
 | GET | `/health` | — | Liveness check, unauthenticated |
 | POST | `/report/resolve` | `{ reportId, reportName? }` | Find-or-create `dim_report` row |
 | POST | `/user/resolve` | `{ entraObjectId, userPrincipalName, displayName }` | Find-or-create `app_user` row |
+| GET | `/product/resolve` | `?productId=` | Read-only lookup in DWH's `view_dim_product` (cross-DB); `{ product: null }` if unknown |
 | GET | `/comments` | `?reportKey=&productId=` | Shared comment history, newest first |
 | POST | `/comments` | `SaveCommentParams` | Append-only comment insert |
 | POST | `/comments/soft-delete` | `{ commentEntryKey, requestingUserKey }` | Hide own comment (ownership enforced in SQL) |

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { parseContext, ContextValidationError } from '@/lib/context';
 import { resolveIdentity, AuthError } from '@/lib/auth';
-import { resolveReport, resolveUser, loadComments, saveComment, softDeleteComment, type CommentRow } from '@/lib/data-api-client';
+import { resolveReport, resolveUser, resolveProduct, loadComments, saveComment, softDeleteComment, type CommentRow } from '@/lib/data-api-client';
 
 function withOwnership(comments: CommentRow[], currentUserKey: number) {
   return comments.map(({ appUserKey, ...rest }) => ({ ...rest, isOwnComment: appUserKey === currentUserKey }));
@@ -13,12 +13,13 @@ export async function GET(req: NextRequest) {
     const context = parseContext(req.nextUrl.searchParams);
     const identity = await resolveIdentity(req);
 
-    const reportKey = await resolveReport(context.reportId, context.reportName);
+    const reportKey = await resolveReport(context.reportId);
     const appUserKey = await resolveUser(identity); // FR: resolve/create local user record even on view-only load
+    const product = await resolveProduct(context.productId);
 
     const comments = await loadComments(reportKey, context.productId);
 
-    return NextResponse.json({ context, viewingAs: identity.displayName, comments: withOwnership(comments, appUserKey) });
+    return NextResponse.json({ context, product, viewingAs: identity.displayName, comments: withOwnership(comments, appUserKey) });
   } catch (err) {
     if (err instanceof AuthError) {
       return NextResponse.json({ error: err.message }, { status: 401 });
@@ -43,16 +44,16 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Falta el campo obligatorio: commentText' }, { status: 400 });
     }
 
-    const reportKey = await resolveReport(context.reportId, context.reportName);
+    const reportKey = await resolveReport(context.reportId);
     const appUserKey = await resolveUser(identity);
+    const product = await resolveProduct(context.productId);
 
     const commentEntryKey = await saveComment({
       reportKey,
       productId: context.productId,
-      productName: context.productName,
-      brand: context.brand,
-      fragrance: context.fragrance,
-      periodLabel: context.periodLabel,
+      productName: product?.productName ?? undefined,
+      brand: product?.brand ?? undefined,
+      fragrance: product?.fragrance ?? undefined,
       appUserKey,
       commentText,
     });
@@ -85,7 +86,7 @@ export async function DELETE(req: NextRequest) {
       return NextResponse.json({ error: 'Falta el campo obligatorio: commentEntryKey' }, { status: 400 });
     }
 
-    const reportKey = await resolveReport(context.reportId, context.reportName);
+    const reportKey = await resolveReport(context.reportId);
     const appUserKey = await resolveUser(identity);
 
     const deleted = await softDeleteComment(commentEntryKey, appUserKey);

@@ -12,6 +12,7 @@ import {
   type SaveCommentParams,
 } from './queries/comments';
 import { logTranscriptionUsage, loadUsageLog, type TranscriptionUsageParams } from './queries/usage-log';
+import { resolveProduct } from './queries/product';
 
 const app = express();
 app.use(express.json());
@@ -50,6 +51,20 @@ app.post('/user/resolve', async (req: Request, res: Response) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'DB error resolving user.' });
+  }
+});
+
+app.get('/product/resolve', async (req: Request, res: Response) => {
+  try {
+    const productId = String(req.query.productId ?? '');
+    if (!productId) return void res.status(400).json({ error: 'Missing productId.' });
+
+    const pool = await getPool();
+    const product = await resolveProduct(pool, process.env.PRODUCT_DB_NAME ?? 'P26AICatalyst', productId);
+    res.json({ product });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'DB error resolving product.' });
   }
 });
 

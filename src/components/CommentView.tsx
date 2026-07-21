@@ -18,7 +18,6 @@ import {
   Gem,
   Flower2,
   SprayCan,
-  Calendar,
   Send,
   Loader2,
   Trash2,
@@ -39,16 +38,20 @@ interface ApiComment {
 
 interface ApiContext {
   reportId: string;
-  reportName?: string;
   productId: string;
-  productName?: string;
-  brand?: string;
-  fragrance?: string;
-  periodLabel?: string;
+}
+
+/** Resolved server-side from DWH's product master — the URL carries IDs only. */
+interface ApiProduct {
+  productId: string;
+  productName: string | null;
+  brand: string | null;
+  fragrance: string | null;
 }
 
 interface ApiResponse {
   context: ApiContext;
+  product: ApiProduct | null;
   viewingAs: string;
   comments: ApiComment[];
 }
@@ -256,7 +259,7 @@ export function CommentView() {
     );
   }
 
-  const context = data?.context;
+  const product = data?.product;
   const isReviewingTranscript = composerMode === "record" && voiceStage === "review";
 
   return (
@@ -286,16 +289,15 @@ export function CommentView() {
               </div>
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-3 text-sm">
-                <ContextField icon={FileText} label="Informe" value={context?.reportName ?? reportId} />
-                {context?.brand && <ContextField icon={Gem} label="Marca" value={context.brand} />}
-                {context?.fragrance && <ContextField icon={Flower2} label="Fragancia" value={context.fragrance} />}
+                <ContextField icon={FileText} label="Informe" value={reportId} />
+                {product?.brand && <ContextField icon={Gem} label="Marca" value={product.brand} />}
+                {product?.fragrance && <ContextField icon={Flower2} label="Fragancia" value={product.fragrance} />}
                 <ContextField
                   icon={SprayCan}
                   label="Producto"
-                  value={context?.productName ?? productId}
-                  secondary={context?.productName ? productId : undefined}
+                  value={product?.productName ?? productId}
+                  secondary={product?.productName ? productId : undefined}
                 />
-                {context?.periodLabel && <ContextField icon={Calendar} label="Periodo" value={context.periodLabel} />}
               </div>
             )}
           </CardContent>

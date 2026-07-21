@@ -18,6 +18,13 @@ export interface CommentRow {
   appUserKey: number;
 }
 
+export interface ProductInfo {
+  productId: string;
+  productName: string | null;
+  brand: string | null;
+  fragrance: string | null;
+}
+
 export interface SaveCommentParams {
   reportKey: number;
   productId: string;
@@ -82,6 +89,18 @@ export async function resolveReport(reportId: string, reportName?: string): Prom
     body: JSON.stringify({ reportId, reportName }),
   });
   return reportKey;
+}
+
+/**
+ * Display data for the product the TARGIT link points at. The launch URL carries
+ * only IDs, so brand/fragrance/name are resolved here from DWH's master view
+ * rather than trusted from the query string. Null when the product isn't in the
+ * master — a comment can still be saved against it (loose lookup, not a hard FK).
+ */
+export async function resolveProduct(productId: string): Promise<ProductInfo | null> {
+  const params = new URLSearchParams({ productId });
+  const { product } = await callDataApi<{ product: ProductInfo | null }>(`/product/resolve?${params}`);
+  return product;
 }
 
 export async function resolveUser(identity: Identity): Promise<number> {

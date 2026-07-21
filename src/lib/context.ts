@@ -1,18 +1,13 @@
 /**
- * FR1 (context intake): parses and validates the minimum URL parameters the
- * vendor report (TARGIT) launch link is expected to carry. Field names/shape
- * are provisional -- TARGIT's actual integration format isn't confirmed yet
- * (see _INDEX.md next actions), simulated here with placeholders in the
- * meantime.
+ * FR1 (context intake): the TARGIT launch link carries IDs only — no readable
+ * business names (10/07/2026 decision, re-tightened 21/07/2026). Display data
+ * for the product is resolved server-side from DWH's master view instead of
+ * being trusted from the query string. Period/month is not carried at all
+ * (deferred from v1 — TARGIT can't inject it, periods are report columns).
  */
 export interface ReportContext {
   reportId: string;
-  reportName?: string;
   productId: string;
-  productName?: string;
-  brand?: string;
-  fragrance?: string;
-  periodLabel?: string;
 }
 
 export class ContextValidationError extends Error {}
@@ -29,13 +24,5 @@ export function parseContext(params: URLSearchParams | Record<string, string | n
   if (!reportId) throw new ContextValidationError('Falta el parámetro obligatorio: reportId');
   if (!productId) throw new ContextValidationError('Falta el parámetro obligatorio: productId');
 
-  return {
-    reportId,
-    reportName: get('reportName'),
-    productId,
-    productName: get('productName'),
-    brand: get('brand'),
-    fragrance: get('fragrance'),
-    periodLabel: get('periodLabel'),
-  };
+  return { reportId, productId };
 }
