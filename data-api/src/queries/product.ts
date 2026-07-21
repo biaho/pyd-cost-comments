@@ -15,6 +15,16 @@ export interface ProductInfo {
  * Column mapping confirmed with MS 21/07/2026: class_description is the fragrance
  * and spx_description_01 is the brand as the user sees them in TARGIT — despite
  * brand_description existing, which is a different DWH-internal field.
+ *
+ * product_number is NOT unique: the view is a Type-2 slowly-changing dimension, so
+ * a product has one row per historical version (dss_version / dss_start_date /
+ * dss_end_date / dss_current_flag). MS checked 21/07/2026 that the four columns we
+ * read currently agree across a product's versions — but that's a property of
+ * today's data, not a guarantee, and TOP (1) without ORDER BY is non-deterministic
+ * regardless. The ordering below pins the pick to the current version.
+ *
+ * dss_current_flag DESC sorts correctly whether the flag is BIT (1 > 0) or CHAR
+ * ('Y' > 'N'), so this is safe without depending on which convention DWH used.
  */
 export async function resolveProduct(
   pool: ConnectionPool,
@@ -34,7 +44,8 @@ export async function resolveProduct(
     .query(
       `SELECT TOP (1) product_number, product_desc, class_description, spx_description_01
        FROM [${productDbName}].[dbo].[view_dim_product]
-       WHERE product_number = @productId`
+       WHERE product_number = @productId
+       ORDER BY dss_current_flag DESC, dss_version DESC, dss_start_date DESC`
     );
 
   if (result.recordset.length === 0) return null;
