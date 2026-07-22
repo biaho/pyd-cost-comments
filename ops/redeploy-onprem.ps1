@@ -13,9 +13,13 @@
   This script only touches C:\apps\pyd-cost-comments and its scheduled
   tasks. It never touches IIS config or the co-hosted epm.pyd.es site.
 
-  .env / .env.local are never in the zips (see .gitignore) and are left
-  untouched by Expand-Archive -Force, since it only overwrites files that
-  exist in the archive.
+  Before extracting, each target folder is cleared of everything except
+  .env / .env.local / node_modules / build output (.next or dist) -- this
+  is deliberate: Expand-Archive -Force only overwrites/adds files that
+  exist in the new zip, it never deletes ones that were removed from the
+  source (hit for real on 22/07/2026: a deleted src/components/AuthProvider.tsx
+  from an earlier bad deploy stayed on disk and broke the next build's
+  type-check even though nothing referenced it anymore).
 
 .PARAMETER DropFolder
   Where the zips + manifest were copied to. Default C:\deploy-drop.
@@ -99,6 +103,13 @@ function Kill-Port([int]$Port) {
   }
 }
 
+function Clear-DeployTarget([string]$Path, [string[]]$Preserve) {
+  if (-not (Test-Path $Path)) { return }
+  Get-ChildItem -Path $Path -Force | Where-Object { $Preserve -notcontains $_.Name } | ForEach-Object {
+    Remove-Item $_.FullName -Recurse -Force -ErrorAction Stop
+  }
+}
+
 function Invoke-Build([string]$Path, [string]$Label, [bool]$DoInstall) {
   Write-Step "$Label`: $(if ($DoInstall) { 'npm install + build' } else { 'build only (deps unchanged)' })"
   Push-Location $Path
@@ -167,7 +178,12 @@ try {
   Kill-Port 3000
   Kill-Port 4000
 
-  Write-Step "Extracting bundles (leaves .env / .env.local untouched)"
+  Write-Step "Clearing stale source (keeps .env / .env.local / node_modules / build output)"
+  Clear-DeployTarget -Path $AppPath -Preserve @('.env', '.env.local', 'node_modules', '.next')
+  Clear-DeployTarget -Path $DataApiPath -Preserve @('.env', '.env.local', 'node_modules', 'dist')
+  Write-Ok "Cleared $AppPath and $DataApiPath (source-only, deps/build output kept)"
+
+  Write-Step "Extracting bundles"
   Expand-Archive -Path $AppZip -DestinationPath $AppPath -Force
   Write-Ok "Extracted app to $AppPath"
   Expand-Archive -Path $DataApiZip -DestinationPath $DataApiPath -Force

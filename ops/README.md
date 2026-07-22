@@ -83,7 +83,10 @@ native postinstall scripts like esbuild's, per the gotcha hit live on
 it — harmless either way; if scripts really were needed and blocked, the next
 `npm run build` step fails with a clear error instead of silently.
 
-Not handled: files removed between releases aren't deleted from the deployed
-folder (`Expand-Archive -Force` only overwrites/adds what's in the new zip).
-Not an issue at this app's current size/rate of change; revisit if it ever
-becomes one (option: wipe everything except `.env*` before extracting).
+**Fixed 22/07/2026, hit for real on the first live redeploy:** each target
+folder is now wiped (except `.env`/`.env.local`/`node_modules`/build output)
+before extracting, specifically because `Expand-Archive -Force` only
+overwrites/adds files present in the new zip — it never deletes ones removed
+from the source. A stale `src/components/AuthProvider.tsx` from an earlier
+deploy (predating the commit that deleted it) survived an unzip-over and broke
+the next build's type-check even though nothing referenced it anymore.
