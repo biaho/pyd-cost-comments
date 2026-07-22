@@ -11,7 +11,7 @@ function withOwnership(comments: CommentRow[], currentUserKey: number) {
 export async function GET(req: NextRequest) {
   try {
     const context = parseContext(req.nextUrl.searchParams);
-    const identity = await resolveIdentity(req);
+    const identity = resolveIdentity(req.nextUrl.searchParams);
 
     const reportKey = await resolveReport(context.reportId);
     const appUserKey = await resolveUser(identity); // FR: resolve/create local user record even on view-only load
@@ -37,7 +37,11 @@ export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
     const context = parseContext(body);
-    const identity = await resolveIdentity(req);
+    const identity = resolveIdentity(body);
+
+    if (!identity.displayName) {
+      return NextResponse.json({ error: 'Falta el campo obligatorio: usuario' }, { status: 400 });
+    }
 
     const commentText = typeof body.commentText === 'string' ? body.commentText.trim() : '';
     if (!commentText) {
@@ -79,7 +83,7 @@ export async function DELETE(req: NextRequest) {
   try {
     const body = await req.json();
     const context = parseContext(body);
-    const identity = await resolveIdentity(req);
+    const identity = resolveIdentity(body);
     const commentEntryKey = Number(body.commentEntryKey);
 
     if (!commentEntryKey) {

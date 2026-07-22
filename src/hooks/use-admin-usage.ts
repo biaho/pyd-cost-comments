@@ -6,7 +6,6 @@ export interface UsageRow {
   id: number;
   userId: number;
   displayName: string | null;
-  userPrincipalName: string | null;
   callType: string;
   apiProvider: string | null;
   characters: number | null;
@@ -68,12 +67,10 @@ function toDateKey(iso: string): string {
 }
 
 function usernameFromRow(r: UsageRow): string {
-  if (r.displayName) return r.displayName;
-  if (r.userPrincipalName) return r.userPrincipalName.split("@")[0];
-  return `user-${r.userId}`;
+  return r.displayName || `user-${r.userId}`;
 }
 
-export function useAdminUsage(filters: Filters, getToken: () => Promise<string>) {
+export function useAdminUsage(filters: Filters, adminKey: string) {
   const [rows, setRows] = useState<UsageRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -87,11 +84,9 @@ export function useAdminUsage(filters: Filters, getToken: () => Promise<string>)
       const params = new URLSearchParams();
       if (start) params.set("start", start.toISOString());
       if (end) params.set("end", end.toISOString());
+      params.set("key", adminKey);
 
-      const token = await getToken();
-      const res = await fetch(`/api/admin/usage-log?${params.toString()}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const res = await fetch(`/api/admin/usage-log?${params.toString()}`);
       const body = await res.json();
 
       if (res.status === 403) {
@@ -108,7 +103,7 @@ export function useAdminUsage(filters: Filters, getToken: () => Promise<string>)
     } finally {
       setLoading(false);
     }
-  }, [filters.range, filters.customStart, filters.customEnd, getToken]);
+  }, [filters.range, filters.customStart, filters.customEnd, adminKey]);
 
   useEffect(() => {
     fetchData();

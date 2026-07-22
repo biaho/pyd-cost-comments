@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { resolveIdentity } from '@/lib/auth';
 import { resolveUser, logTranscriptionUsage } from '@/lib/data-api-client';
 import { computeElevenLabsSttCost } from '@/lib/pricing';
 
@@ -44,8 +43,11 @@ export async function POST(req: NextRequest) {
 
     // Usage logging is best-effort -- a logging failure must never block returning the transcript.
     try {
-      const identity = await resolveIdentity(req);
-      const appUserKey = await resolveUser(identity);
+      const clientToken = formData.get('clientToken');
+      if (typeof clientToken !== 'string' || !clientToken) {
+        throw new Error('Falta clientToken en la solicitud de transcripción.');
+      }
+      const appUserKey = await resolveUser({ clientToken, displayName: '', targitUsername: null });
       const characters = text.length;
       const durationSecondsEst = audioFile.size / 16000; // rough estimate, matches pyd-audio-studio
 

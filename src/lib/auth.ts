@@ -1,64 +1,57 @@
-import { NextRequest } from 'next/server';
-import { createRemoteJWKSet, jwtVerify } from 'jose';
-
 /**
- * Real Entra ID identity, replacing src/lib/mock-auth.ts's MockIdentity now
- * that the tenant admin has granted consent (see decisions.log.md 17/07/2026).
- * Same shape as MockIdentity on purpose -- comments.ts/admin.ts didn't need to change.
+ * No verified auth. Both Windows/AD Integrated Auth (blocked -- IIS URL
+ * Rewrite resolves before Windows Auth completes, no supported fix without
+ * native code) and Entra ID on-prem (reproduces the same PYD-IT-controlled
+ * DNS dependency the on-prem pivot was meant to avoid) were dropped as
+ * unworkable for this app. See decisions.log.md 22/07/2026.
+ *
+ * Two identity sources, in priority order:
+ * 1. TARGIT-supplied username (`targitUser` on the launch URL, once TARGIT's
+ *    webbox element can pass it -- see decisions.log.md 22/07/2026). Not a
+ *    cryptographic guarantee (still just a URL parameter), but materially
+ *    harder to fake than free text and stable across the same person's
+ *    devices, so it's treated as the trustworthier source when present.
+ * 2. Manual typing into the mandatory "Usuario" field -- pure free text,
+ *    genuinely fakeable, paired with a random per-browser `clientToken`
+ *    (localStorage, see use-client-identity.ts) purely so ownership stays
+ *    stable across a single browser's sessions.
+ *
+ * Nothing privileged depends on identity except the admin usage dashboard,
+ * which is gated separately (see admin.ts).
  */
 export interface Identity {
-  entraObjectId: string;
-  userPrincipalName: string;
+  clientToken: string;
   displayName: string;
+  targitUsername: string | null;
 }
 
 export class AuthError extends Error {}
 
-const TENANT_ID = process.env.NEXT_PUBLIC_AZURE_AD_TENANT_ID;
-const CLIENT_ID = process.env.NEXT_PUBLIC_AZURE_AD_CLIENT_ID;
-
-if (!TENANT_ID || !CLIENT_ID) {
-  throw new Error('NEXT_PUBLIC_AZURE_AD_TENANT_ID / NEXT_PUBLIC_AZURE_AD_CLIENT_ID must be set.');
-}
-
-const ISSUER = `https://login.microsoftonline.com/${TENANT_ID}/v2.0`;
-
-// Cached across invocations -- fetches Entra's signing keys lazily and refreshes on kid miss.
-const jwks = createRemoteJWKSet(
-  new URL(`https://login.microsoftonline.com/${TENANT_ID}/discovery/v2.0/keys`)
-);
+const CLIENT_TOKEN_PATTERN = /^[a-zA-Z0-9-]{8,64}$/;
 
 /**
- * Verifies the frontend's MSAL ID token (not a separate access token -- this
- * app has no exposed API scope, only the default `User.Read` Graph permission,
- * so the ID token's own signature/issuer/audience checks are the trust
- * boundary). Extracts the same three claims MockIdentity used to fabricate.
+ * Reads clientToken/usuario/targitUser from either a URLSearchParams (GET)
+ * or a plain body record (POST/DELETE) -- same dual-shape pattern as
+ * parseContext in context.ts, so callers can pass whichever they already
+ * have in hand. `displayName` may legitimately be empty (a view-only GET
+ * before the user has typed anything, and TARGIT hasn't supplied one
+ * either); callers that require it (saving a comment) must check that
+ * themselves and return their own validation error.
  */
-export async function resolveIdentity(req: NextRequest): Promise<Identity> {
-  const authHeader = req.headers.get('authorization');
-  const token = authHeader?.match(/^Bearer (.+)$/)?.[1];
-  if (!token) {
-    throw new AuthError('Falta la cabecera Authorization: Bearer <token>.');
-  }
-
-  let payload;
-  try {
-    ({ payload } = await jwtVerify(token, jwks, { issuer: ISSUER, audience: CLIENT_ID }));
-  } catch {
-    throw new AuthError('Token de sesión inválido o caducado. Inicia sesión de nuevo.');
-  }
-
-  const entraObjectId = payload.oid;
-  const userPrincipalName = payload.preferred_username ?? payload.upn;
-  const displayName = payload.name;
-
-  if (typeof entraObjectId !== 'string' || typeof userPrincipalName !== 'string') {
-    throw new AuthError('El token no contiene los claims esperados (oid, preferred_username).');
-  }
-
-  return {
-    entraObjectId,
-    userPrincipalName,
-    displayName: typeof displayName === 'string' ? displayName : userPrincipalName,
+export function resolveIdentity(params: URLSearchParams | Record<string, string | null | undefined>): Identity {
+  const get = (key: string): string | undefined => {
+    const value = params instanceof URLSearchParams ? params.get(key) : params[key];
+    return value ?? undefined;
   };
+
+  const clientToken = get('clientToken');
+  if (!clientToken || !CLIENT_TOKEN_PATTERN.test(clientToken)) {
+    throw new AuthError('Falta o es inválido el identificador de dispositivo (clientToken).');
+  }
+
+  const targitUsername = get('targitUser')?.trim() || null;
+  const typedUsuario = get('usuario')?.trim() ?? '';
+  const displayName = targitUsername || typedUsuario;
+
+  return { clientToken, displayName, targitUsername };
 }

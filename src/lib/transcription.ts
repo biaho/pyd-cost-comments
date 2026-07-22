@@ -1,10 +1,10 @@
-export async function transcribeAudio(audioBlob: Blob, token: string): Promise<string> {
+export async function transcribeAudio(audioBlob: Blob, clientToken: string | null): Promise<string> {
   const formData = new FormData();
   formData.append('audio', audioBlob, 'recording.webm');
+  if (clientToken) formData.append('clientToken', clientToken);
 
   const res = await fetch('/api/transcribe', {
     method: 'POST',
-    headers: { Authorization: `Bearer ${token}` },
     body: formData,
   });
   const body = await res.json();

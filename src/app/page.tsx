@@ -19,8 +19,7 @@ export default function Home() {
             <CardTitle className="text-lg">PYD Cost Comments</CardTitle>
           </div>
           <CardDescription>
-            Esta aplicación se abre desde un enlace de &quot;Comentario&quot; incrustado en uno de los
-            informes de coste de TARGIT de PYD — no está pensada para visitarse directamente.
+            Esta aplicación se abre desde un enlace de &quot;Comentario&quot; incrustado en informes de coste de PYD en TARGIT. No es posible acceder directamente. Contacte con su administrador para más información.
           </CardDescription>
         </CardHeader>
         {SHOW_SIMULATED_LINK_BUTTON && (

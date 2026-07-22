@@ -1,12 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { resolveIdentity, AuthError } from '@/lib/auth';
-import { isAdmin } from '@/lib/admin';
+import { isAdminRequest } from '@/lib/admin';
 import { loadUsageLog } from '@/lib/data-api-client';
 
 export async function GET(req: NextRequest) {
   try {
-    const identity = await resolveIdentity(req);
-    if (!isAdmin(identity)) {
+    if (!isAdminRequest(req)) {
       return NextResponse.json(
         { error: 'Acceso denegado. Esta página solo es accesible para administradores.' },
         { status: 403 }
@@ -23,9 +21,6 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json({ rows });
   } catch (err) {
-    if (err instanceof AuthError) {
-      return NextResponse.json({ error: err.message }, { status: 401 });
-    }
     console.error(err);
     return NextResponse.json({ error: 'Error al cargar el uso de la API.' }, { status: 500 });
   }

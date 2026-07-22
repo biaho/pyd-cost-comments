@@ -28,7 +28,6 @@ export interface UsageLogRow {
   id: number;
   userId: number;
   displayName: string | null;
-  userPrincipalName: string | null;
   callType: string;
   apiProvider: string | null;
   characters: number | null;
@@ -62,7 +61,6 @@ export async function loadUsageLog(
        t.usage_log_key       AS id,
        t.app_user_key        AS user_id,
        u.display_name,
-       u.user_principal_name,
        t.call_type,
        t.api_provider,
        t.characters,
@@ -80,7 +78,6 @@ export async function loadUsageLog(
     id: r.id,
     userId: r.user_id,
     displayName: r.display_name,
-    userPrincipalName: r.user_principal_name,
     callType: r.call_type,
     apiProvider: r.api_provider,
     characters: r.characters,

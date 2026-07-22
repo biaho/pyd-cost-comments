@@ -3,7 +3,6 @@
 import { useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useAdminUsage, type Filters, type RangeKey, type UsageRow } from "@/hooks/use-admin-usage";
-import { useAuthToken } from "@/lib/use-auth-token";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -48,7 +47,9 @@ export function AdminUsageView() {
   const router = useRouter();
   const params = useSearchParams();
   const [detailRow, setDetailRow] = useState<UsageRow | null>(null);
-  const getToken = useAuthToken();
+  // No verified admin identity anymore (see src/lib/admin.ts) -- access is
+  // gated on a shared secret handed out of band, appended to this page's URL.
+  const adminKey = params.get("key") ?? "";
 
   const filters: Filters = useMemo(
     () => ({
@@ -79,7 +80,7 @@ export function AdminUsageView() {
     updateParam({ [paramKey]: next });
   };
 
-  const usage = useAdminUsage(filters, getToken);
+  const usage = useAdminUsage(filters, adminKey);
 
   if (usage.forbidden) {
     return (

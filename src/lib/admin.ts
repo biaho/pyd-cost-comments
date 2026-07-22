@@ -1,8 +1,16 @@
-import type { Identity } from './auth';
+import { NextRequest } from 'next/server';
 
-/** Single admin for the usage dashboard, swappable via env var. */
-const ADMIN_USER_PRINCIPAL_NAME = process.env.ADMIN_USER_PRINCIPAL_NAME || 'aitor@pyd.es';
+/**
+ * With no verified user identity (see auth.ts), the admin dashboard can no
+ * longer gate on a UPN match. Stopgap: a shared secret handed out of band
+ * (not a per-user identity), passed as ?key= on the /admin/usage URL and
+ * forwarded to this API. Flagged as a stopgap, not a final design -- worth
+ * revisiting (e.g. IP allowlist, or Windows-Auth-free route protection at
+ * the IIS layer) if the dashboard needs stronger access control later.
+ */
+const ADMIN_ACCESS_KEY = process.env.ADMIN_ACCESS_KEY;
 
-export function isAdmin(identity: Identity): boolean {
-  return identity.userPrincipalName.toLowerCase() === ADMIN_USER_PRINCIPAL_NAME.toLowerCase();
+export function isAdminRequest(req: NextRequest): boolean {
+  if (!ADMIN_ACCESS_KEY) return false;
+  return req.nextUrl.searchParams.get('key') === ADMIN_ACCESS_KEY;
 }

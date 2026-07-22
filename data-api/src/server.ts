@@ -41,8 +41,8 @@ app.post('/report/resolve', async (req: Request, res: Response) => {
 app.post('/user/resolve', async (req: Request, res: Response) => {
   try {
     const identity = req.body as Identity;
-    if (!identity?.entraObjectId || !identity?.userPrincipalName) {
-      return void res.status(400).json({ error: 'Missing entraObjectId/userPrincipalName.' });
+    if (!identity?.clientToken) {
+      return void res.status(400).json({ error: 'Missing clientToken.' });
     }
 
     const pool = await getPool();

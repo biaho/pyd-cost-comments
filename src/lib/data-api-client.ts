@@ -1,12 +1,12 @@
 import type { Identity } from './auth';
 
 /**
- * Client for the on-prem Data API (see ../../data-api/). The actual SQL
- * connection lives on an always-on machine inside PYD's domain, reached
- * here over HTTPS via Tailscale Funnel -- keeps SQL Server's raw TDS
- * surface off the internet and gives a controlled, parameterized-query
- * boundary instead. Full rationale in ../../logs/decisions.log.md
- * (17/07/2026, "Phase B bridge tech decided").
+ * Client for the on-prem Data API (see ../../data-api/). Both this app and
+ * the Data API run on the same on-prem server as SQL Server -- called here
+ * over localhost, no tunnel/bridge of any kind (superseded the original
+ * Tailscale Funnel plan; see ../../logs/decisions.log.md, 21/07/2026 "full
+ * on-prem" pivot). Split into its own service purely for defense-in-depth:
+ * a frontend bug can't reach raw SQL.
  */
 
 export interface CommentRow {
@@ -14,7 +14,6 @@ export interface CommentRow {
   commentText: string;
   createdAtUtc: string;
   authorDisplayName: string | null;
-  authorUserPrincipalName: string | null;
   appUserKey: number;
 }
 
@@ -49,7 +48,6 @@ export interface UsageLogRow {
   id: number;
   userId: number;
   displayName: string | null;
-  userPrincipalName: string | null;
   callType: string;
   apiProvider: string | null;
   characters: number | null;

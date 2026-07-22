@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
@@ -11,7 +12,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "@/components/ui/sonner";
 import { VoiceRecorderControls, type VoiceStage } from "@/components/VoiceRecorderControls";
 import { transcribeAudio } from "@/lib/transcription";
-import { useAuthToken } from "@/lib/use-auth-token";
+import { useClientIdentity } from "@/lib/use-client-identity";
 import {
   MessageSquareText,
   FileText,
@@ -25,6 +26,7 @@ import {
   Keyboard,
   Mic,
   RotateCcw,
+  User,
 } from "lucide-react";
 
 interface ApiComment {
@@ -32,7 +34,6 @@ interface ApiComment {
   commentText: string;
   createdAtUtc: string;
   authorDisplayName: string | null;
-  authorUserPrincipalName: string | null;
   isOwnComment: boolean;
 }
 
@@ -79,7 +80,11 @@ export function CommentView() {
   const searchParams = useSearchParams();
   const reportId = searchParams.get("reportId");
   const productId = searchParams.get("productId");
-  const getToken = useAuthToken();
+  // Once TARGIT's webbox can pass its own logged-in username, it arrives here
+  // -- takes priority over manual typing and locks the field (see auth.ts).
+  const targitUser = searchParams.get("targitUser")?.trim() || null;
+  const { clientToken, usuario, setUsuario } = useClientIdentity();
+  const effectiveUsuario = targitUser || usuario;
 
   const [data, setData] = useState<ApiResponse | null>(null);
   const [loading, setLoading] = useState(true);
@@ -100,18 +105,24 @@ export function CommentView() {
 
   const buildParams = useCallback(() => new URLSearchParams(searchParams.toString()), [searchParams]);
 
+  // Every request to our own API carries the per-browser clientToken (no
+  // auth header anymore -- see src/lib/auth.ts). Never written into the
+  // visible URL, only into the request itself.
+  const buildApiParams = useCallback(() => {
+    const params = buildParams();
+    if (clientToken) params.set("clientToken", clientToken);
+    return params;
+  }, [buildParams, clientToken]);
+
   const load = useCallback(async () => {
-    if (!reportId || !productId) {
+    if (!reportId || !productId || !clientToken) {
       setLoading(false);
       return;
     }
     setLoading(true);
     setError(null);
     try {
-      const token = await getToken();
-      const res = await fetch(`/api/comments?${buildParams().toString()}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const res = await fetch(`/api/comments?${buildApiParams().toString()}`);
       const body = await res.json();
       if (!res.ok) throw new Error(body.error ?? "Error al cargar los comentarios.");
       setData(body);
@@ -120,7 +131,7 @@ export function CommentView() {
     } finally {
       setLoading(false);
     }
-  }, [reportId, productId, buildParams, getToken]);
+  }, [reportId, productId, clientToken, buildApiParams]);
 
   useEffect(() => {
     load();
@@ -158,8 +169,7 @@ export function CommentView() {
         setVoiceStage("processing");
         const blob = new Blob(chunksRef.current, { type: "audio/webm" });
         try {
-          const token = await getToken();
-          const text = await transcribeAudio(blob, token);
+          const text = await transcribeAudio(blob, clientToken);
           setCommentText(text);
           setVoiceStage("review");
         } catch (err) {
@@ -198,13 +208,17 @@ export function CommentView() {
   const handleSave = async () => {
     const trimmed = commentText.trim();
     if (!trimmed) return;
+    const nombre = effectiveUsuario.trim();
+    if (!nombre) {
+      toast("Escribe tu nombre en el campo Usuario antes de guardar el comentario.");
+      return;
+    }
     setSubmitting(true);
     try {
-      const token = await getToken();
       const res = await fetch("/api/comments", {
         method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ ...Object.fromEntries(buildParams()), commentText: trimmed }),
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...Object.fromEntries(buildApiParams()), commentText: trimmed, usuario: nombre }),
       });
       const body = await res.json();
       if (!res.ok) throw new Error(body.error ?? "Error al guardar.");
@@ -221,11 +235,10 @@ export function CommentView() {
   const handleRemove = async (commentEntryKey: number) => {
     setRemovingKey(commentEntryKey);
     try {
-      const token = await getToken();
       const res = await fetch("/api/comments", {
         method: "DELETE",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ ...Object.fromEntries(buildParams()), commentEntryKey }),
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...Object.fromEntries(buildApiParams()), commentEntryKey }),
       });
       const body = await res.json();
       if (!res.ok) throw new Error(body.error ?? "Error al eliminar.");
@@ -249,9 +262,7 @@ export function CommentView() {
               <CardTitle className="text-lg">Falta contexto</CardTitle>
             </div>
             <CardDescription>
-              Esta aplicación debe abrirse desde un enlace de un informe de coste de TARGIT. No se han
-              encontrado en la URL los parámetros obligatorios (
-              <code className="font-mono text-xs">reportId</code>, <code className="font-mono text-xs">productId</code>).
+              Esta aplicación debe abrirse desde un enlace de un informe de coste de TARGIT.
             </CardDescription>
           </CardHeader>
         </Card>
@@ -318,6 +329,25 @@ export function CommentView() {
             <CardTitle className="text-lg">Añadir un comentario</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
+            {/* Usuario (obligatorio) -- no hay inicio de sesión; ver src/lib/auth.ts.
+                Si TARGIT ya nos indica el usuario, el campo se bloquea y se
+                rellena solo -- si no, el usuario lo escribe manualmente. */}
+            <div className="space-y-1.5">
+              <label htmlFor="usuario" className="text-xs uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                <User className="h-3.5 w-3.5" /> Usuario <span className="text-destructive">*</span>
+                {targitUser && <span className="normal-case tracking-normal text-[10px]">(TARGIT)</span>}
+              </label>
+              <Input
+                id="usuario"
+                placeholder="Tu nombre"
+                value={effectiveUsuario}
+                onChange={(e) => !targitUser && setUsuario(e.target.value)}
+                disabled={submitting || !!targitUser}
+                readOnly={!!targitUser}
+                required
+              />
+            </div>
+
             {/* Selector de modo: Escribir / Grabar */}
             <div className="inline-flex rounded-md border border-border/50 bg-secondary/30 p-1">
               <button
@@ -357,7 +387,11 @@ export function CommentView() {
                   onChange={(e) => setCommentText(e.target.value)}
                   disabled={submitting || loading}
                 />
-                <Button onClick={handleSave} disabled={submitting || loading || !commentText.trim()} className="w-full sm:w-auto">
+                <Button
+                  onClick={handleSave}
+                  disabled={submitting || loading || !commentText.trim() || !effectiveUsuario.trim()}
+                  className="w-full sm:w-auto"
+                >
                   {submitting ? (
                     <>
                       <Loader2 className="h-4 w-4 animate-spin" /> Guardando...
@@ -394,7 +428,11 @@ export function CommentView() {
                   aria-label="Transcripción — edítala antes de guardar"
                 />
                 <div className="flex flex-col sm:flex-row gap-2">
-                  <Button onClick={handleSave} disabled={submitting || !commentText.trim()} className="w-full sm:w-auto">
+                  <Button
+                    onClick={handleSave}
+                    disabled={submitting || !commentText.trim() || !effectiveUsuario.trim()}
+                    className="w-full sm:w-auto"
+                  >
                     {submitting ? (
                       <>
                         <Loader2 className="h-4 w-4 animate-spin" /> Guardando...
