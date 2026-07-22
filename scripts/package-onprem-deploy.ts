@@ -7,9 +7,13 @@
  * Render's git-push-to-deploy with one repeatable command. Ships source only;
  * node_modules and build output are produced on the server by npm install +
  * npm run build.
+ *
+ * Also writes manifest-<stamp>.json alongside the zips. ops/redeploy-onprem.ps1
+ * reads it on the server to decide whether `npm install` is needed per
+ * service, instead of relying on someone reading the changed-files list below.
  */
 import { execFileSync } from 'node:child_process';
-import { existsSync, mkdirSync, rmSync, cpSync } from 'node:fs';
+import { existsSync, mkdirSync, rmSync, cpSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 const REPO_ROOT = join(__dirname, '..');
@@ -79,6 +83,13 @@ function packageService(name: string, sourceRoot: string, entries: string[], suf
   }
 }
 
+/** True if any of the given paths (relative to repo root) changed between the two refs. */
+function pathsChangedSince(lastTag: string | null, paths: string[]): boolean {
+  if (!lastTag) return true; // no prior deploy tag — treat everything as changed
+  const changed = git(['diff', '--name-only', `${lastTag}..HEAD`, '--', ...paths]);
+  return !!changed && changed.length > 0;
+}
+
 function main(): void {
   mkdirSync(OUT_DIR, { recursive: true });
   const suffix = stamp();
@@ -89,21 +100,42 @@ function main(): void {
 
   const lastTag = git(['describe', '--tags', '--abbrev=0', '--match', `${LAST_DEPLOY_TAG_PREFIX}-*`]);
   console.log('\nChanged since last on-prem deploy:');
+  let changedFiles: string[] = [];
   if (!lastTag) {
     console.log(`  No ${LAST_DEPLOY_TAG_PREFIX}-* tag yet — treat this as a full first deploy.`);
   } else {
     const changed = git(['diff', '--name-only', `${lastTag}..HEAD`]);
-    console.log(changed ? `  (since ${lastTag})\n${changed.split('\n').map((f) => `    ${f}`).join('\n')}` : `  Nothing changed since ${lastTag}.`);
+    changedFiles = changed ? changed.split('\n').filter(Boolean) : [];
+    console.log(changedFiles.length > 0
+      ? `  (since ${lastTag})\n${changedFiles.map((f) => `    ${f}`).join('\n')}`
+      : `  Nothing changed since ${lastTag}.`);
   }
 
+  const manifest = {
+    stamp: suffix,
+    createdAtUtc: new Date().toISOString(),
+    lastDeployTag: lastTag,
+    changedFiles,
+    app: {
+      zip: `app-${suffix}.zip`,
+      depsChanged: pathsChangedSince(lastTag, ['package.json', 'package-lock.json']),
+    },
+    dataApi: {
+      zip: `data-api-${suffix}.zip`,
+      depsChanged: pathsChangedSince(lastTag, ['data-api/package.json', 'data-api/package-lock.json']),
+    },
+  };
+  writeFileSync(join(OUT_DIR, `manifest-${suffix}.json`), JSON.stringify(manifest, null, 2));
+  console.log(`\nWrote manifest-${suffix}.json (${manifest.app.depsChanged ? 'app deps changed' : 'app deps unchanged'}, ${manifest.dataApi.depsChanged ? 'data-api deps changed' : 'data-api deps unchanged'}).`);
+
   console.log(`
-On-server refresh runbook (RDP in, copy the two zips over):
-  1. Stop the scheduled tasks:  pyd-cost-comments-app, pyd-cost-comments-data-api
-  2. Extract each zip over its existing folder (keeps .env / .env.local in place)
-  3. npm install          (only if package.json / package-lock.json changed above)
-  4. npm run build        (in both the app folder and data-api/)
-  5. Start both scheduled tasks again
-  6. Back here: git tag ${LAST_DEPLOY_TAG_PREFIX}-$(date +%Y%m%d) && git push origin --tags
+Copy all three files (app-${suffix}.zip, data-api-${suffix}.zip, manifest-${suffix}.json) into
+C:\\deploy-drop\\ on the server, then run redeploy-onprem.cmd there — it reads the manifest and
+does the rest (stop, unzip, install-if-needed, build, start, health-check) in one call.
+See ops/README.md / skills/deploy-onprem.md for the one-time server-side setup.
+
+After MS confirms the refresh worked:
+  git tag ${LAST_DEPLOY_TAG_PREFIX}-$(date +%Y%m%d) && git push origin --tags
 `);
 }
 

@@ -10,7 +10,8 @@
     "test:db": "tsx scripts/test-db-local.ts",
     "migrate": "tsx scripts/run-migration.ts",
     "simulate": "tsx scripts/simulate-call.ts",
-    "package:onprem": "tsx scripts/package-onprem-deploy.ts"
+    "package:onprem": "tsx scripts/package-onprem-deploy.ts",
+    "dev:restart": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/dev-restart.ps1"
   },
   "dependencies": {
     "@radix-ui/react-accordion": "^1.2.16",
