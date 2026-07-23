@@ -135,12 +135,23 @@ async function resolveByClientToken(pool: ConnectionPool, clientToken: string, d
   return created.recordset[0].app_user_key as number;
 }
 
-/** FR3/FR4/FR8: shared comment history for a report/product selection, newest first. */
-export async function loadComments(pool: ConnectionPool, reportKey: number, productId: string): Promise<CommentRow[]> {
+/**
+ * FR3/FR4/FR8: shared comment history for a report/product/month selection,
+ * newest first. Scoped to the period too (22/07/2026) -- a comment explains a
+ * deviation in a specific month, so the thread a user sees must be the one
+ * for the cell they clicked, never a mix of every month's comments.
+ */
+export async function loadComments(
+  pool: ConnectionPool,
+  reportKey: number,
+  productId: string,
+  periodId: string
+): Promise<CommentRow[]> {
   const result = await pool
     .request()
     .input('reportKey', reportKey)
     .input('productId', productId)
+    .input('periodId', periodId)
     .query(
       `SELECT
          c.comment_entry_key,
@@ -152,6 +163,7 @@ export async function loadComments(pool: ConnectionPool, reportKey: number, prod
        JOIN app_user u ON u.app_user_key = c.app_user_key
        WHERE c.report_key = @reportKey
          AND c.product_id = @productId
+         AND c.period_id = @periodId
          AND c.is_deleted = 0
        ORDER BY c.created_at_utc DESC`
     );
@@ -168,6 +180,8 @@ export async function loadComments(pool: ConnectionPool, reportKey: number, prod
 export interface SaveCommentParams {
   reportKey: number;
   productId: string;
+  /** Normalized YYYYMM -- part of the comment's identity, not just context. */
+  periodId: string;
   productName?: string;
   brand?: string;
   fragrance?: string;
@@ -182,6 +196,7 @@ export async function saveComment(pool: ConnectionPool, params: SaveCommentParam
     .request()
     .input('reportKey', params.reportKey)
     .input('productId', params.productId)
+    .input('periodId', params.periodId)
     .input('productName', params.productName ?? null)
     .input('brand', params.brand ?? null)
     .input('fragrance', params.fragrance ?? null)
@@ -190,9 +205,9 @@ export async function saveComment(pool: ConnectionPool, params: SaveCommentParam
     .input('commentText', params.commentText)
     .query(
       `INSERT INTO comment_entry
-         (report_key, product_id, product_name_snapshot, brand_snapshot, fragrance_snapshot, period_label_snapshot, app_user_key, comment_text)
+         (report_key, product_id, period_id, product_name_snapshot, brand_snapshot, fragrance_snapshot, period_label_snapshot, app_user_key, comment_text)
        OUTPUT INSERTED.comment_entry_key
-       VALUES (@reportKey, @productId, @productName, @brand, @fragrance, @periodLabel, @appUserKey, @commentText)`
+       VALUES (@reportKey, @productId, @periodId, @productName, @brand, @fragrance, @periodLabel, @appUserKey, @commentText)`
     );
 
   return result.recordset[0].comment_entry_key as number;

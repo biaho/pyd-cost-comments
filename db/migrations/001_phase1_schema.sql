@@ -103,11 +103,16 @@ GO
 
 -- ============================================================
 -- Seed: dim_report rows
--- Real report_id codes still pending from client -- names are confirmed.
--- Fill in report_id once codes arrive, then uncomment and run.
+-- No longer blocked on external codes (confirmed 22/07/2026): we author the
+-- TARGIT webbox launch URL ourselves, so reportId/reportName are values we
+-- choose, not codes TARGIT hands us. No manual seed needed either --
+-- resolveReport() (data-api/src/queries/comments.ts) find-or-creates a row
+-- the first time a given reportId/reportName pair arrives from a real
+-- webbox hit. The INSERT below is only a convenience for anyone who'd
+-- rather pre-seed by hand; leave commented out unless that's wanted.
 -- ============================================================
 -- INSERT INTO dim_report (report_id, report_name) VALUES
---     ('<pending>', 'Coste Interno'),
---     ('<pending>', 'Coste Medio'),
---     ('<pending>', 'AI Seguimiento coste medio vs interno');
+--     ('coste-interno', 'Coste Interno'),
+--     ('coste-medio', 'Coste Medio'),
+--     ('coste-medio-vs-interno', 'AI Seguimiento coste medio vs interno');
 -- GO

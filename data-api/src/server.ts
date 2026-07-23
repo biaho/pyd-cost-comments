@@ -72,12 +72,13 @@ app.get('/comments', async (req: Request, res: Response) => {
   try {
     const reportKey = Number(req.query.reportKey);
     const productId = String(req.query.productId ?? '');
-    if (!reportKey || !productId) {
-      return void res.status(400).json({ error: 'Missing/invalid reportKey or productId.' });
+    const periodId = String(req.query.periodId ?? '');
+    if (!reportKey || !productId || !periodId) {
+      return void res.status(400).json({ error: 'Missing/invalid reportKey, productId or periodId.' });
     }
 
     const pool = await getPool();
-    const comments = await loadComments(pool, reportKey, productId);
+    const comments = await loadComments(pool, reportKey, productId, periodId);
     res.json({ comments });
   } catch (err) {
     console.error(err);
@@ -88,7 +89,7 @@ app.get('/comments', async (req: Request, res: Response) => {
 app.post('/comments', async (req: Request, res: Response) => {
   try {
     const params = req.body as SaveCommentParams;
-    if (!params?.reportKey || !params?.productId || !params?.appUserKey || !params?.commentText) {
+    if (!params?.reportKey || !params?.productId || !params?.periodId || !params?.appUserKey || !params?.commentText) {
       return void res.status(400).json({ error: 'Missing required fields.' });
     }
 

@@ -4,9 +4,14 @@
  * driver executes one batch per request.
  *
  *   npm run migrate -- db/migrations/001_phase1_schema.sql
+ *   npm run migrate -- db/migrations/001_phase1_schema.sql P26AICatalyst_Work
  *
- * Reads DB_SERVER_IP/DB_NAME/DB_USER/DB_PASSWORD from .env.local. Requires
- * the VPN connection to PYD's domain to be active.
+ * Reads DB_SERVER_IP/DB_NAME/DB_USER/DB_PASSWORD from .env.local. An optional
+ * second CLI arg overrides DB_NAME for this run only, so the production
+ * database (P26AICatalyst_Work) can be targeted without touching .env.local's
+ * DB_NAME, which the other dev scripts (test-db-local, check-usage-log) keep
+ * pointed at the test DB (P26AICatalyst). Requires the VPN connection to
+ * PYD's domain to be active.
  */
 import { config } from 'dotenv';
 import { readFileSync } from 'node:fs';
@@ -22,8 +27,9 @@ async function main(): Promise<void> {
     process.exit(1);
   }
 
-  const { DB_SERVER_IP, DB_SERVER, DB_PORT, DB_NAME, DB_USER, DB_PASSWORD, DB_TRUST_SERVER_CERTIFICATE } = process.env;
+  const { DB_SERVER_IP, DB_SERVER, DB_PORT, DB_NAME: DB_NAME_ENV, DB_USER, DB_PASSWORD, DB_TRUST_SERVER_CERTIFICATE } = process.env;
   const server = DB_SERVER_IP || DB_SERVER;
+  const DB_NAME = process.argv[3] || DB_NAME_ENV;
 
   if (!server || !DB_NAME || !DB_USER || !DB_PASSWORD) {
     console.error('Missing DB_SERVER / DB_SERVER_IP / DB_NAME / DB_USER / DB_PASSWORD — fill in .env.local first.');

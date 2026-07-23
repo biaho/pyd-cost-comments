@@ -27,6 +27,8 @@ export interface ProductInfo {
 export interface SaveCommentParams {
   reportKey: number;
   productId: string;
+  /** Normalized YYYYMM -- part of the comment's identity, not just context. */
+  periodId: string;
   productName?: string;
   brand?: string;
   fragrance?: string;
@@ -109,8 +111,8 @@ export async function resolveUser(identity: Identity): Promise<number> {
   return appUserKey;
 }
 
-export async function loadComments(reportKey: number, productId: string): Promise<CommentRow[]> {
-  const params = new URLSearchParams({ reportKey: String(reportKey), productId });
+export async function loadComments(reportKey: number, productId: string, periodId: string): Promise<CommentRow[]> {
+  const params = new URLSearchParams({ reportKey: String(reportKey), productId, periodId });
   const { comments } = await callDataApi<{ comments: CommentRow[] }>(`/comments?${params}`);
   return comments;
 }

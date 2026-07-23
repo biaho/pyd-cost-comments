@@ -13,12 +13,10 @@ import { toast } from "@/components/ui/sonner";
 import { VoiceRecorderControls, type VoiceStage } from "@/components/VoiceRecorderControls";
 import { transcribeAudio } from "@/lib/transcription";
 import { useClientIdentity } from "@/lib/use-client-identity";
+import { normalizePeriodId } from "@/lib/context";
 import {
   MessageSquareText,
-  FileText,
-  Gem,
-  Flower2,
-  SprayCan,
+  CalendarDays,
   Send,
   Loader2,
   Trash2,
@@ -69,6 +67,12 @@ function initials(name: string): string {
     .toUpperCase();
 }
 
+/** Display-only: "PYD\Administrador" -> "Administrador". Never used for identity/DB values. */
+function stripDomainPrefix(name: string): string {
+  const idx = name.indexOf("\\");
+  return idx === -1 ? name : name.slice(idx + 1);
+}
+
 function formatDateTime(iso: string): string {
   const d = new Date(iso);
   const date = d.toLocaleDateString("es-ES", { day: "2-digit", month: "2-digit", year: "numeric" });
@@ -76,10 +80,23 @@ function formatDateTime(iso: string): string {
   return `${date}, ${time}`;
 }
 
+const MESES = [
+  "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
+  "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre",
+];
+
+/** "202508" -> "Agosto 2025", for display only. The stored key stays YYYYMM. */
+function formatPeriod(periodId: string): string {
+  return `${MESES[Number(periodId.slice(4, 6)) - 1]} ${periodId.slice(0, 4)}`;
+}
+
 export function CommentView() {
   const searchParams = useSearchParams();
   const reportId = searchParams.get("reportId");
   const productId = searchParams.get("productId");
+  // The clicked cell's month. A comment explains a deviation in a specific
+  // period, so this is part of its identity -- not optional context.
+  const periodId = normalizePeriodId(searchParams.get("date"));
   // Once TARGIT's webbox can pass its own logged-in username, it arrives here
   // -- takes priority over manual typing and locks the field (see auth.ts).
   const targitUser = searchParams.get("targitUser")?.trim() || null;
@@ -115,7 +132,7 @@ export function CommentView() {
   }, [buildParams, clientToken]);
 
   const load = useCallback(async () => {
-    if (!reportId || !productId || !clientToken) {
+    if (!reportId || !productId || !periodId || !clientToken) {
       setLoading(false);
       return;
     }
@@ -131,7 +148,7 @@ export function CommentView() {
     } finally {
       setLoading(false);
     }
-  }, [reportId, productId, clientToken, buildApiParams]);
+  }, [reportId, productId, periodId, clientToken, buildApiParams]);
 
   useEffect(() => {
     load();
@@ -155,6 +172,16 @@ export function CommentView() {
 
   const startRecording = async () => {
     setVoiceError(null);
+    // navigator.mediaDevices only exists in a secure context (HTTPS or
+    // localhost). Served over plain HTTP on the LAN hostname it's undefined,
+    // and the old catch-all below blamed microphone permissions for what is
+    // really a hosting/protocol limitation. Say the true reason instead.
+    if (!navigator.mediaDevices?.getUserMedia) {
+      setVoiceError(
+        "La grabación de voz requiere una conexión segura (HTTPS). Escribe el comentario a mano mientras tanto."
+      );
+      return;
+    }
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       streamRef.current = stream;
@@ -251,8 +278,8 @@ export function CommentView() {
     }
   };
 
-  // FR10: parámetros obligatorios ausentes en la URL
-  if (!reportId || !productId) {
+  // FR10: la app se abrió fuera de TARGIT (o con un enlace roto) -- ni siquiera hay reportId.
+  if (!reportId) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center p-4">
         <Card className="max-w-md w-full border-border/50 bg-card/80 backdrop-blur-sm">
@@ -265,6 +292,73 @@ export function CommentView() {
               Esta aplicación debe abrirse desde un enlace de un informe de coste de TARGIT.
             </CardDescription>
           </CardHeader>
+        </Card>
+      </div>
+    );
+  }
+
+  // El informe TARGIT está abierto pero la selección todavía no identifica una celda
+  // concreta: falta el producto (fila) y/o el mes (columna). TARGIT siempre dispara la
+  // llamada, solo que con los filtros que aún no están puestos vacíos. Nada que
+  // resolver contra la API hasta que la celda esté completa.
+  if (!productId || !periodId) {
+    const nombre = targitUser ? stripDomainPrefix(targitUser) : null;
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center p-4">
+        <Card className="max-w-md w-full border-border/50 bg-card/80 backdrop-blur-sm">
+          <CardHeader className="pb-3">
+            <div className="flex items-center gap-2 text-primary">
+              <MessageSquareText className="h-5 w-5 shrink-0" />
+              <CardTitle className="text-lg">
+                {nombre ? (
+                  <>
+                    Hola <span className="text-primary">{nombre}</span>
+                  </>
+                ) : (
+                  "Bienvenido"
+                )}
+              </CardTitle>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-4 text-sm">
+            <p className="text-muted-foreground">
+              Este informe permite guardar comentarios para cada valor que se muestra en las celdas, es decir,
+              para un <strong className="text-foreground">producto</strong> y un{" "}
+              <strong className="text-foreground">mes</strong> concretos.
+            </p>
+
+            <p className="text-muted-foreground">
+              Puedes introducir tus comentarios escribiendo o grabando por voz. Tu grabación se transcribirá
+              automáticamente y te mostrará el texto para que lo corrijas o modifiques según necesites; después se
+              guardará el texto. La grabación de voz no se guarda en el sistema: es únicamente un medio más rápido
+              de generar el texto que necesitas.
+            </p>
+
+            <p className="text-muted-foreground">Para empezar:</p>
+
+            <div className="flex items-start gap-3">
+              <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-semibold text-primary">
+                1
+              </span>
+              <p className="text-foreground">
+                Haz clic en la <strong>celda</strong> del informe que quieras comentar: la del producto (fila) en
+                el mes (columna) que te interesa.
+              </p>
+            </div>
+
+            <div className="flex items-start gap-3">
+              <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-semibold text-primary">
+                2
+              </span>
+              <p className="text-foreground">
+                Aquí verás los comentarios de esa celda y podrás añadir el tuyo.
+              </p>
+            </div>
+
+            <p className="border-t border-border/50 pt-3 text-muted-foreground">
+              ¿La columna <strong className="text-foreground">Comentarios</strong> muestra un contador de notas que ya han sido guardadas para ese producto (fila) y que pueden estar asociadas y repartidas en los diferentes periodos mostrados en el informe.
+            </p>
+          </CardContent>
         </Card>
       </div>
     );
@@ -285,30 +379,43 @@ export function CommentView() {
         </div>
       </header>
 
-      <main className="max-w-2xl mx-auto px-4 py-4 sm:py-6 space-y-4">
-        {/* Tarjeta de contexto (FR2) */}
+      <main className="max-w-2xl mx-auto px-4 py-3 sm:py-4 space-y-3">
+        {/* Selección actual (FR2). Compacta a propósito: esto vive dentro de un
+            panel estrecho al lado del informe, así que el espacio vertical es
+            para los comentarios, no para repetir lo que el usuario acaba de
+            clicar. Producto como titular, el resto en una línea de metadatos. */}
         <Card className="border-border/50 bg-card/80 backdrop-blur-sm">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-lg">Contexto del informe</CardTitle>
-          </CardHeader>
-          <CardContent>
+          <CardContent className="p-3 sm:p-4">
             {loading && !data ? (
-              <div className="grid grid-cols-2 gap-3">
-                {Array.from({ length: 4 }).map((_, i) => (
-                  <Skeleton key={i} className="h-10" />
-                ))}
+              <div className="space-y-2">
+                <Skeleton className="h-3 w-40" />
+                <Skeleton className="h-5 w-full" />
+                <Skeleton className="h-3 w-3/4" />
               </div>
             ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-3 text-sm">
-                <ContextField icon={FileText} label="Informe" value={reportId} />
-                {product?.brand && <ContextField icon={Gem} label="Marca" value={product.brand} />}
-                {product?.fragrance && <ContextField icon={Flower2} label="Fragancia" value={product.fragrance} />}
-                <ContextField
-                  icon={SprayCan}
-                  label="Producto"
-                  value={product?.productName ?? productId}
-                  secondary={product?.productName ? productId : undefined}
-                />
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-[11px] uppercase tracking-wider text-muted-foreground">
+                    Selección para comentar
+                  </span>
+                  <span className="flex items-center gap-1 rounded-full bg-primary px-2 py-0.5 text-[11px] font-medium text-primary-foreground">
+                    <CalendarDays className="h-3 w-3" />
+                    {formatPeriod(periodId)}
+                  </span>
+                </div>
+
+                <p className="font-semibold leading-snug break-words">
+                  {product?.productName ?? productId}
+                </p>
+
+                {/* El ID solo aporta si el titular es el NOMBRE del producto; si
+                    el maestro no resolvió, el titular ya es el propio ID y
+                    repetirlo debajo es ruido. */}
+                <p className="text-xs text-muted-foreground break-words">
+                  {[product?.brand, product?.fragrance, product?.productName ? productId : null]
+                    .filter(Boolean)
+                    .join(" · ")}
+                </p>
               </div>
             )}
           </CardContent>
@@ -325,28 +432,37 @@ export function CommentView() {
 
         {/* Tarjeta del compositor (FR5/FR6 + grabación de voz) */}
         <Card className="border-border/50 bg-card/80 backdrop-blur-sm">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-lg">Añadir un comentario</CardTitle>
+          <CardHeader className="p-3 pb-2 sm:p-4 sm:pb-2">
+            <CardTitle className="text-base">Añadir un comentario</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-3">
+          <CardContent className="p-3 pt-0 sm:p-4 sm:pt-0 space-y-3">
             {/* Usuario (obligatorio) -- no hay inicio de sesión; ver src/lib/auth.ts.
-                Si TARGIT ya nos indica el usuario, el campo se bloquea y se
-                rellena solo -- si no, el usuario lo escribe manualmente. */}
-            <div className="space-y-1.5">
-              <label htmlFor="usuario" className="text-xs uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
-                <User className="h-3.5 w-3.5" /> Usuario <span className="text-destructive">*</span>
-                {targitUser && <span className="normal-case tracking-normal text-[10px]">(TARGIT)</span>}
-              </label>
-              <Input
-                id="usuario"
-                placeholder="Tu nombre"
-                value={effectiveUsuario}
-                onChange={(e) => !targitUser && setUsuario(e.target.value)}
-                disabled={submitting || !!targitUser}
-                readOnly={!!targitUser}
-                required
-              />
-            </div>
+                Cuando TARGIT nos da el usuario no es editable, así que se muestra
+                como una línea compacta en vez de un campo de formulario completo:
+                ocupar una fila entera de input para algo que nadie puede tocar es
+                desperdiciar el poco alto que tiene este panel. Si no viene de
+                TARGIT, sí se muestra el campo editable. */}
+            {targitUser ? (
+              <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                <User className="h-3.5 w-3.5 shrink-0" />
+                Comentando como <span className="font-medium text-foreground">{effectiveUsuario}</span>
+                <span className="text-[10px]">(TARGIT)</span>
+              </div>
+            ) : (
+              <div className="space-y-1.5">
+                <label htmlFor="usuario" className="text-xs uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                  <User className="h-3.5 w-3.5" /> Usuario <span className="text-destructive">*</span>
+                </label>
+                <Input
+                  id="usuario"
+                  placeholder="Tu nombre"
+                  value={effectiveUsuario}
+                  onChange={(e) => setUsuario(e.target.value)}
+                  disabled={submitting}
+                  required
+                />
+              </div>
+            )}
 
             {/* Selector de modo: Escribir / Grabar */}
             <div className="inline-flex rounded-md border border-border/50 bg-secondary/30 p-1">
@@ -465,11 +581,15 @@ export function CommentView() {
 
         {/* Historial de comentarios (FR3/FR4/FR8) */}
         <Card className="border-border/50 bg-card/80 backdrop-blur-sm">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-lg">Historial de comentarios</CardTitle>
-            <CardDescription>Más recientes primero · visible para todos los usuarios autorizados</CardDescription>
+          <CardHeader className="p-3 pb-2 sm:p-4 sm:pb-2">
+            <CardTitle className="text-base">
+              Comentarios{data?.comments.length ? ` (${data.comments.length})` : ""}
+            </CardTitle>
+            <CardDescription className="text-xs">
+              De esta celda · más recientes primero · visibles para todos
+            </CardDescription>
           </CardHeader>
-          <CardContent>
+          <CardContent className="p-3 pt-0 sm:p-4 sm:pt-0">
             {loading && !data ? (
               <div className="space-y-4">
                 {Array.from({ length: 2 }).map((_, i) => (
@@ -530,25 +650,3 @@ export function CommentView() {
   );
 }
 
-function ContextField({
-  icon: Icon,
-  label,
-  value,
-  secondary,
-}: {
-  icon: typeof FileText;
-  label: string;
-  value: string;
-  secondary?: string;
-}) {
-  return (
-    <div className="flex items-start gap-2 min-w-0">
-      <Icon className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />
-      <div className="min-w-0">
-        <div className="text-[10px] uppercase tracking-wider text-muted-foreground">{label}</div>
-        <div className="text-sm truncate">{value}</div>
-        {secondary && <div className="text-xs text-muted-foreground truncate">ID: {secondary}</div>}
-      </div>
-    </div>
-  );
-}

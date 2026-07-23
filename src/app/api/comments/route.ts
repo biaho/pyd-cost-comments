@@ -13,11 +13,11 @@ export async function GET(req: NextRequest) {
     const context = parseContext(req.nextUrl.searchParams);
     const identity = resolveIdentity(req.nextUrl.searchParams);
 
-    const reportKey = await resolveReport(context.reportId);
+    const reportKey = await resolveReport(context.reportId, context.reportName);
     const appUserKey = await resolveUser(identity); // FR: resolve/create local user record even on view-only load
     const product = await resolveProduct(context.productId);
 
-    const comments = await loadComments(reportKey, context.productId);
+    const comments = await loadComments(reportKey, context.productId, context.periodId);
 
     return NextResponse.json({ context, product, viewingAs: identity.displayName, comments: withOwnership(comments, appUserKey) });
   } catch (err) {
@@ -48,13 +48,14 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Falta el campo obligatorio: commentText' }, { status: 400 });
     }
 
-    const reportKey = await resolveReport(context.reportId);
+    const reportKey = await resolveReport(context.reportId, context.reportName);
     const appUserKey = await resolveUser(identity);
     const product = await resolveProduct(context.productId);
 
     const commentEntryKey = await saveComment({
       reportKey,
       productId: context.productId,
+      periodId: context.periodId,
       productName: product?.productName ?? undefined,
       brand: product?.brand ?? undefined,
       fragrance: product?.fragrance ?? undefined,
@@ -62,7 +63,7 @@ export async function POST(req: NextRequest) {
       commentText,
     });
 
-    const comments = await loadComments(reportKey, context.productId);
+    const comments = await loadComments(reportKey, context.productId, context.periodId);
 
     return NextResponse.json({ commentEntryKey, comments: withOwnership(comments, appUserKey) }, { status: 201 });
   } catch (err) {
@@ -98,7 +99,7 @@ export async function DELETE(req: NextRequest) {
       return NextResponse.json({ error: 'Comentario no encontrado, ya eliminado, o no pertenece a este usuario.' }, { status: 403 });
     }
 
-    const comments = await loadComments(reportKey, context.productId);
+    const comments = await loadComments(reportKey, context.productId, context.periodId);
 
     return NextResponse.json({ comments: withOwnership(comments, appUserKey) });
   } catch (err) {
