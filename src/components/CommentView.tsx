@@ -25,6 +25,7 @@ import {
   Mic,
   RotateCcw,
   User,
+  SprayCan,
 } from "lucide-react";
 
 interface ApiComment {
@@ -368,10 +369,10 @@ export function CommentView() {
   const isReviewingTranscript = composerMode === "record" && voiceStage === "review";
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="h-dvh flex flex-col bg-background overflow-hidden">
       {/* Cabecera */}
-      <header className="sticky top-0 z-10 border-b border-border/50 bg-background/95 backdrop-blur-sm">
-        <div className="max-w-2xl mx-auto px-4 py-3 flex items-center justify-between gap-3">
+      <header className="shrink-0 border-b border-border/50 bg-background/95 backdrop-blur-sm">
+        <div className="max-w-2xl mx-auto px-4 py-2.5 flex items-center justify-between gap-3">
           <div className="flex items-center gap-2 min-w-0">
             <MessageSquareText className="h-5 w-5 text-primary shrink-0" />
             <span className="font-semibold text-sm sm:text-base truncate">PYD Cost Comments</span>
@@ -379,209 +380,69 @@ export function CommentView() {
         </div>
       </header>
 
-      <main className="max-w-2xl mx-auto px-4 py-3 sm:py-4 space-y-3">
+      <main className="flex-1 min-h-0 flex flex-col max-w-2xl w-full mx-auto px-4">
         {/* Selección actual (FR2). Compacta a propósito: esto vive dentro de un
             panel estrecho al lado del informe, así que el espacio vertical es
             para los comentarios, no para repetir lo que el usuario acaba de
-            clicar. Producto como titular, el resto en una línea de metadatos. */}
-        <Card className="border-border/50 bg-card/80 backdrop-blur-sm">
-          <CardContent className="p-3 sm:p-4">
-            {loading && !data ? (
-              <div className="space-y-2">
-                <Skeleton className="h-3 w-40" />
-                <Skeleton className="h-5 w-full" />
-                <Skeleton className="h-3 w-3/4" />
-              </div>
-            ) : (
-              <div className="space-y-1.5">
-                <div className="flex items-center justify-between gap-2">
+            clicar. Producto y periodo son las dos claves de la celda -- ambos
+            se muestran como badges del mismo peso visual, ya que son el dato
+            principal que identifica qué se está comentando. */}
+        <div className="shrink-0 pt-3">
+          <Card className="border-border/50 bg-card/80 backdrop-blur-sm">
+            <CardContent className="p-3">
+              {loading && !data ? (
+                <div className="space-y-2">
+                  <Skeleton className="h-3 w-40" />
+                  <Skeleton className="h-5 w-full" />
+                  <Skeleton className="h-3 w-3/4" />
+                </div>
+              ) : (
+                <div className="space-y-1.5">
                   <span className="text-[11px] uppercase tracking-wider text-muted-foreground">
                     Selección para comentar
                   </span>
-                  <span className="flex items-center gap-1 rounded-full bg-primary px-2 py-0.5 text-[11px] font-medium text-primary-foreground">
-                    <CalendarDays className="h-3 w-3" />
-                    {formatPeriod(periodId)}
-                  </span>
+
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <span className="flex items-center gap-1 rounded-full border border-primary/40 bg-primary/10 px-2 py-0.5 text-xs font-mono font-semibold text-primary">
+                      <SprayCan className="h-3 w-3 shrink-0" />
+                      {productId}
+                    </span>
+                    <span className="flex items-center gap-1 rounded-full border border-primary/40 bg-primary/10 px-2 py-0.5 text-xs font-mono font-semibold text-primary">
+                      <CalendarDays className="h-3 w-3 shrink-0" />
+                      {formatPeriod(periodId)}
+                    </span>
+                  </div>
+
+                  <p className="font-semibold leading-snug break-words">
+                    {product?.productName ?? "Producto no identificado en el maestro"}
+                  </p>
+
+                  {(product?.brand || product?.fragrance) && (
+                    <p className="text-xs text-muted-foreground break-words">
+                      {[product?.brand, product?.fragrance].filter(Boolean).join(" · ")}
+                    </p>
+                  )}
                 </div>
-
-                <p className="font-semibold leading-snug break-words">
-                  {product?.productName ?? productId}
-                </p>
-
-                {/* El ID solo aporta si el titular es el NOMBRE del producto; si
-                    el maestro no resolvió, el titular ya es el propio ID y
-                    repetirlo debajo es ruido. */}
-                <p className="text-xs text-muted-foreground break-words">
-                  {[product?.brand, product?.fragrance, product?.productName ? productId : null]
-                    .filter(Boolean)
-                    .join(" · ")}
-                </p>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        {error && (
-          <Card className="border-destructive/50 bg-destructive/10">
-            <CardContent className="pt-6 flex items-center gap-2 text-sm text-destructive">
-              <AlertCircle className="h-4 w-4 shrink-0" />
-              {error}
+              )}
             </CardContent>
           </Card>
-        )}
 
-        {/* Tarjeta del compositor (FR5/FR6 + grabación de voz) */}
-        <Card className="border-border/50 bg-card/80 backdrop-blur-sm">
-          <CardHeader className="p-3 pb-2 sm:p-4 sm:pb-2">
-            <CardTitle className="text-base">Añadir un comentario</CardTitle>
-          </CardHeader>
-          <CardContent className="p-3 pt-0 sm:p-4 sm:pt-0 space-y-3">
-            {/* Usuario (obligatorio) -- no hay inicio de sesión; ver src/lib/auth.ts.
-                Cuando TARGIT nos da el usuario no es editable, así que se muestra
-                como una línea compacta en vez de un campo de formulario completo:
-                ocupar una fila entera de input para algo que nadie puede tocar es
-                desperdiciar el poco alto que tiene este panel. Si no viene de
-                TARGIT, sí se muestra el campo editable. */}
-            {targitUser ? (
-              <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                <User className="h-3.5 w-3.5 shrink-0" />
-                Comentando como <span className="font-medium text-foreground">{effectiveUsuario}</span>
-                <span className="text-[10px]">(TARGIT)</span>
-              </div>
-            ) : (
-              <div className="space-y-1.5">
-                <label htmlFor="usuario" className="text-xs uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
-                  <User className="h-3.5 w-3.5" /> Usuario <span className="text-destructive">*</span>
-                </label>
-                <Input
-                  id="usuario"
-                  placeholder="Tu nombre"
-                  value={effectiveUsuario}
-                  onChange={(e) => setUsuario(e.target.value)}
-                  disabled={submitting}
-                  required
-                />
-              </div>
-            )}
+          {error && (
+            <Card className="mt-2 border-destructive/50 bg-destructive/10">
+              <CardContent className="p-3 flex items-center gap-2 text-sm text-destructive">
+                <AlertCircle className="h-4 w-4 shrink-0" />
+                {error}
+              </CardContent>
+            </Card>
+          )}
+        </div>
 
-            {/* Selector de modo: Escribir / Grabar */}
-            <div className="inline-flex rounded-md border border-border/50 bg-secondary/30 p-1">
-              <button
-                type="button"
-                onClick={() => {
-                  if (voiceStage === "recording") discardRecording();
-                  setComposerMode("type");
-                  setVoiceStage("idle");
-                }}
-                className={`inline-flex items-center gap-1.5 rounded px-3 py-1.5 text-sm font-medium transition-colors ${
-                  composerMode === "type" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
-                }`}
-                aria-pressed={composerMode === "type"}
-              >
-                <Keyboard className="h-3.5 w-3.5" /> Escribir
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setComposerMode("record");
-                  setCommentText("");
-                }}
-                className={`inline-flex items-center gap-1.5 rounded px-3 py-1.5 text-sm font-medium transition-colors ${
-                  composerMode === "record" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
-                }`}
-                aria-pressed={composerMode === "record"}
-              >
-                <Mic className="h-3.5 w-3.5" /> Grabar
-              </button>
-            </div>
-
-            {composerMode === "type" && (
-              <>
-                <Textarea
-                  placeholder="Explica la desviación de coste que has detectado..."
-                  value={commentText}
-                  onChange={(e) => setCommentText(e.target.value)}
-                  disabled={submitting || loading}
-                />
-                <Button
-                  onClick={handleSave}
-                  disabled={submitting || loading || !commentText.trim() || !effectiveUsuario.trim()}
-                  className="w-full sm:w-auto"
-                >
-                  {submitting ? (
-                    <>
-                      <Loader2 className="h-4 w-4 animate-spin" /> Guardando...
-                    </>
-                  ) : (
-                    <>
-                      <Send className="h-4 w-4" /> Guardar comentario
-                    </>
-                  )}
-                </Button>
-              </>
-            )}
-
-            {composerMode === "record" && !isReviewingTranscript && (
-              <VoiceRecorderControls
-                stage={voiceStage}
-                elapsedSeconds={elapsedSeconds}
-                error={voiceError}
-                onStart={startRecording}
-                onStop={stopRecording}
-                onDiscard={discardRecording}
-              />
-            )}
-
-            {isReviewingTranscript && (
-              <>
-                <p className="text-xs uppercase tracking-wider text-muted-foreground">
-                  Revisa el texto antes de guardar — esto es lo que se guardará
-                </p>
-                <Textarea
-                  value={commentText}
-                  onChange={(e) => setCommentText(e.target.value)}
-                  disabled={submitting}
-                  aria-label="Transcripción — edítala antes de guardar"
-                />
-                <div className="flex flex-col sm:flex-row gap-2">
-                  <Button
-                    onClick={handleSave}
-                    disabled={submitting || !commentText.trim() || !effectiveUsuario.trim()}
-                    className="w-full sm:w-auto"
-                  >
-                    {submitting ? (
-                      <>
-                        <Loader2 className="h-4 w-4 animate-spin" /> Guardando...
-                      </>
-                    ) : (
-                      <>
-                        <Send className="h-4 w-4" /> Guardar comentario
-                      </>
-                    )}
-                  </Button>
-                  <Button
-                    variant="outline"
-                    onClick={() => {
-                      setVoiceStage("idle");
-                      setCommentText("");
-                    }}
-                    disabled={submitting}
-                    className="w-full sm:w-auto"
-                  >
-                    <RotateCcw className="h-4 w-4" /> Volver a grabar
-                  </Button>
-                  <Button variant="ghost" onClick={discardRecording} disabled={submitting} className="w-full sm:w-auto">
-                    <Trash2 className="h-4 w-4" /> Descartar
-                  </Button>
-                </div>
-              </>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Historial de comentarios (FR3/FR4/FR8) */}
-        <Card className="border-border/50 bg-card/80 backdrop-blur-sm">
-          <CardHeader className="p-3 pb-2 sm:p-4 sm:pb-2">
+        {/* Historial de comentarios (FR3/FR4/FR8) -- único bloque que hace scroll.
+            Vive en el centro, entre la selección (arriba) y el compositor
+            (abajo, siempre visible), para que añadir un comentario nunca
+            requiera desplazarse. */}
+        <Card className="flex-1 min-h-0 my-3 flex flex-col border-border/50 bg-card/80 backdrop-blur-sm">
+          <CardHeader className="shrink-0 p-3 pb-2">
             <CardTitle className="text-base">
               Comentarios{data?.comments.length ? ` (${data.comments.length})` : ""}
             </CardTitle>
@@ -589,15 +450,15 @@ export function CommentView() {
               De esta celda · más recientes primero · visibles para todos
             </CardDescription>
           </CardHeader>
-          <CardContent className="p-3 pt-0 sm:p-4 sm:pt-0">
+          <CardContent className="flex-1 min-h-0 overflow-y-auto scroll-subtle p-3 pt-0">
             {loading && !data ? (
-              <div className="space-y-4">
-                {Array.from({ length: 2 }).map((_, i) => (
-                  <div key={i} className="flex gap-3">
-                    <Skeleton className="h-10 w-10 rounded-full shrink-0" />
+              <div className="space-y-3">
+                {Array.from({ length: 3 }).map((_, i) => (
+                  <div key={i} className="flex gap-2.5">
+                    <Skeleton className="h-8 w-8 rounded-full shrink-0" />
                     <div className="flex-1 space-y-2">
-                      <Skeleton className="h-4 w-1/3" />
-                      <Skeleton className="h-4 w-full" />
+                      <Skeleton className="h-3.5 w-1/3" />
+                      <Skeleton className="h-3.5 w-full" />
                     </div>
                   </div>
                 ))}
@@ -605,13 +466,13 @@ export function CommentView() {
             ) : data && data.comments.length === 0 ? (
               <p className="text-sm text-muted-foreground text-center py-4">Todavía no hay comentarios para esta selección.</p>
             ) : (
-              <div className="space-y-4">
+              <div className="space-y-2.5">
                 {data?.comments.map((c, i) => (
                   <div key={c.commentEntryKey}>
-                    {i > 0 && <Separator className="mb-4" />}
-                    <div className="flex gap-3">
-                      <Avatar>
-                        <AvatarFallback>{initials(c.authorDisplayName ?? "?")}</AvatarFallback>
+                    {i > 0 && <Separator className="mb-2.5" />}
+                    <div className="flex gap-2.5">
+                      <Avatar className="h-8 w-8">
+                        <AvatarFallback className="text-xs">{initials(c.authorDisplayName ?? "?")}</AvatarFallback>
                       </Avatar>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center justify-between gap-2 flex-wrap">
@@ -636,7 +497,7 @@ export function CommentView() {
                             </Button>
                           )}
                         </div>
-                        <p className="text-sm mt-1 whitespace-pre-wrap break-words">{c.commentText}</p>
+                        <p className="text-sm mt-0.5 whitespace-pre-wrap break-words">{c.commentText}</p>
                       </div>
                     </div>
                   </div>
@@ -645,6 +506,160 @@ export function CommentView() {
             )}
           </CardContent>
         </Card>
+
+        {/* Tarjeta del compositor (FR5/FR6 + grabación de voz) -- fija abajo,
+            siempre visible mientras el historial de arriba hace scroll. */}
+        <div className="shrink-0 pb-3">
+          <Card className="border-border/50 bg-card/80 backdrop-blur-sm">
+            <CardHeader className="p-3 pb-2">
+              <CardTitle className="text-base">Añadir un comentario</CardTitle>
+            </CardHeader>
+            <CardContent className="p-3 pt-0 space-y-2.5">
+              {/* Usuario (obligatorio) -- no hay inicio de sesión; ver src/lib/auth.ts.
+                  Cuando TARGIT nos da el usuario no es editable, así que se muestra
+                  como una línea compacta en vez de un campo de formulario completo:
+                  ocupar una fila entera de input para algo que nadie puede tocar es
+                  desperdiciar el poco alto que tiene este panel. Si no viene de
+                  TARGIT, sí se muestra el campo editable. */}
+              {targitUser ? (
+                <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                  <User className="h-3.5 w-3.5 shrink-0" />
+                  Comentando como <span className="font-medium text-foreground">{effectiveUsuario}</span>
+                  <span className="text-[10px]">(TARGIT)</span>
+                </div>
+              ) : (
+                <div className="space-y-1.5">
+                  <label htmlFor="usuario" className="text-xs uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                    <User className="h-3.5 w-3.5" /> Usuario <span className="text-destructive">*</span>
+                  </label>
+                  <Input
+                    id="usuario"
+                    placeholder="Tu nombre"
+                    value={effectiveUsuario}
+                    onChange={(e) => setUsuario(e.target.value)}
+                    disabled={submitting}
+                    required
+                  />
+                </div>
+              )}
+
+              {/* Selector de modo: Escribir / Grabar */}
+              <div className="inline-flex rounded-md border border-border/50 bg-secondary/30 p-1">
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (voiceStage === "recording") discardRecording();
+                    setComposerMode("type");
+                    setVoiceStage("idle");
+                  }}
+                  className={`inline-flex items-center gap-1.5 rounded px-3 py-1.5 text-sm font-medium transition-colors ${
+                    composerMode === "type" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
+                  }`}
+                  aria-pressed={composerMode === "type"}
+                >
+                  <Keyboard className="h-3.5 w-3.5" /> Escribir
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setComposerMode("record");
+                    setCommentText("");
+                  }}
+                  className={`inline-flex items-center gap-1.5 rounded px-3 py-1.5 text-sm font-medium transition-colors ${
+                    composerMode === "record" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
+                  }`}
+                  aria-pressed={composerMode === "record"}
+                >
+                  <Mic className="h-3.5 w-3.5" /> Grabar
+                </button>
+              </div>
+
+              {composerMode === "type" && (
+                <>
+                  <Textarea
+                    placeholder="Explica la desviación de coste que has detectado..."
+                    value={commentText}
+                    onChange={(e) => setCommentText(e.target.value)}
+                    disabled={submitting || loading}
+                    className="min-h-[72px] max-h-[160px] overflow-y-auto scroll-subtle"
+                  />
+                  <Button
+                    onClick={handleSave}
+                    disabled={submitting || loading || !commentText.trim() || !effectiveUsuario.trim()}
+                    className="w-full sm:w-auto"
+                  >
+                    {submitting ? (
+                      <>
+                        <Loader2 className="h-4 w-4 animate-spin" /> Guardando...
+                      </>
+                    ) : (
+                      <>
+                        <Send className="h-4 w-4" /> Guardar comentario
+                      </>
+                    )}
+                  </Button>
+                </>
+              )}
+
+              {composerMode === "record" && !isReviewingTranscript && (
+                <VoiceRecorderControls
+                  stage={voiceStage}
+                  elapsedSeconds={elapsedSeconds}
+                  error={voiceError}
+                  onStart={startRecording}
+                  onStop={stopRecording}
+                  onDiscard={discardRecording}
+                />
+              )}
+
+              {isReviewingTranscript && (
+                <>
+                  <p className="text-xs uppercase tracking-wider text-muted-foreground">
+                    Revisa el texto antes de guardar — esto es lo que se guardará
+                  </p>
+                  <Textarea
+                    value={commentText}
+                    onChange={(e) => setCommentText(e.target.value)}
+                    disabled={submitting}
+                    aria-label="Transcripción — edítala antes de guardar"
+                    className="min-h-[72px] max-h-[160px] overflow-y-auto scroll-subtle"
+                  />
+                  <div className="flex flex-col sm:flex-row gap-2">
+                    <Button
+                      onClick={handleSave}
+                      disabled={submitting || !commentText.trim() || !effectiveUsuario.trim()}
+                      className="w-full sm:w-auto"
+                    >
+                      {submitting ? (
+                        <>
+                          <Loader2 className="h-4 w-4 animate-spin" /> Guardando...
+                        </>
+                      ) : (
+                        <>
+                          <Send className="h-4 w-4" /> Guardar comentario
+                        </>
+                      )}
+                    </Button>
+                    <Button
+                      variant="outline"
+                      onClick={() => {
+                        setVoiceStage("idle");
+                        setCommentText("");
+                      }}
+                      disabled={submitting}
+                      className="w-full sm:w-auto"
+                    >
+                      <RotateCcw className="h-4 w-4" /> Volver a grabar
+                    </Button>
+                    <Button variant="ghost" onClick={discardRecording} disabled={submitting} className="w-full sm:w-auto">
+                      <Trash2 className="h-4 w-4" /> Descartar
+                    </Button>
+                  </div>
+                </>
+              )}
+            </CardContent>
+          </Card>
+        </div>
       </main>
     </div>
   );

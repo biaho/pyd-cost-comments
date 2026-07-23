@@ -93,3 +93,39 @@
     font-family: 'JetBrains Mono', monospace;
   }
 }
+
+/* Thin, theme-matched scrollbar for internal scroll containers (e.g. the
+   comment history panel) -- the OS default is high-contrast grey/white and
+   fights the dark palette. Firefox via scrollbar-color, WebKit/Chromium via
+   ::-webkit-scrollbar. Track is transparent (invisible at rest); thumb is a
+   soft, just-noticeable tone (a touch lighter than --border, kept as its own
+   variable so tuning it doesn't affect real borders elsewhere) that becomes
+   clearly visible on hover. */
+:root {
+  --scrollbar-thumb: hsl(220 14% 26%);
+}
+
+.scroll-subtle {
+  scrollbar-width: thin;
+  scrollbar-color: var(--scrollbar-thumb) transparent;
+}
+
+.scroll-subtle::-webkit-scrollbar {
+  width: 8px;
+}
+
+.scroll-subtle::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.scroll-subtle::-webkit-scrollbar-thumb {
+  background-color: var(--scrollbar-thumb);
+  border-radius: 9999px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+
+.scroll-subtle::-webkit-scrollbar-thumb:hover {
+  background-color: var(--muted-foreground);
+  background-clip: padding-box;
+}
