@@ -129,3 +129,18 @@
   background-color: var(--muted-foreground);
   background-clip: padding-box;
 }
+
+/* Slightly raised look for the app's three primary section cards (selection,
+   comment history, composer) -- the default --border sits too close in
+   lightness to both --background and --card, so panels read as flat against
+   the page. A touch-brighter border plus a soft shadow (dark drop-shadow for
+   separation from the page + a faint inset top highlight for a subtle "glass
+   panel" edge) reads as intentional layering without introducing a new loud
+   color. Scoped to its own class -- doesn't touch the shared --border
+   variable, so nothing else (inputs, other cards, admin dashboard) shifts. */
+.card-elevated {
+  border-color: hsl(220 14% 27%);
+  box-shadow:
+    0 1px 3px 0 rgba(0, 0, 0, 0.35),
+    0 1px 0 0 rgba(255, 255, 255, 0.04) inset;
+}

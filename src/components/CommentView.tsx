@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Popover, PopoverTrigger, PopoverContent, PopoverClose } from "@/components/ui/popover";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "@/components/ui/sonner";
@@ -388,7 +389,7 @@ export function CommentView() {
             se muestran como badges del mismo peso visual, ya que son el dato
             principal que identifica qué se está comentando. */}
         <div className="shrink-0 pt-3">
-          <Card className="border-border/50 bg-card/80 backdrop-blur-sm">
+          <Card className="card-elevated bg-card/90 backdrop-blur-sm">
             <CardContent className="p-3">
               {loading && !data ? (
                 <div className="space-y-2">
@@ -398,19 +399,21 @@ export function CommentView() {
                 </div>
               ) : (
                 <div className="space-y-1.5">
-                  <span className="text-[11px] uppercase tracking-wider text-muted-foreground">
-                    Selección para comentar
-                  </span>
+                  <div className="flex items-center justify-between gap-2 flex-wrap">
+                    <span className="text-[11px] uppercase tracking-wider text-muted-foreground">
+                      Selección para comentar
+                    </span>
 
-                  <div className="flex items-center gap-1.5 flex-wrap">
-                    <span className="flex items-center gap-1 rounded-full border border-primary/40 bg-primary/10 px-2 py-0.5 text-xs font-mono font-semibold text-primary">
-                      <SprayCan className="h-3 w-3 shrink-0" />
-                      {productId}
-                    </span>
-                    <span className="flex items-center gap-1 rounded-full border border-primary/40 bg-primary/10 px-2 py-0.5 text-xs font-mono font-semibold text-primary">
-                      <CalendarDays className="h-3 w-3 shrink-0" />
-                      {formatPeriod(periodId)}
-                    </span>
+                    <div className="flex items-center gap-1.5">
+                      <span className="flex items-center gap-1 rounded-full border border-primary/40 bg-primary/10 px-2 py-0.5 text-xs font-mono font-semibold text-primary">
+                        <SprayCan className="h-3 w-3 shrink-0" />
+                        {productId}
+                      </span>
+                      <span className="flex items-center gap-1 rounded-full border border-primary/40 bg-primary/10 px-2 py-0.5 text-xs font-mono font-semibold text-primary">
+                        <CalendarDays className="h-3 w-3 shrink-0" />
+                        {formatPeriod(periodId)}
+                      </span>
+                    </div>
                   </div>
 
                   <p className="font-semibold leading-snug break-words">
@@ -441,7 +444,7 @@ export function CommentView() {
             Vive en el centro, entre la selección (arriba) y el compositor
             (abajo, siempre visible), para que añadir un comentario nunca
             requiera desplazarse. */}
-        <Card className="flex-1 min-h-0 my-3 flex flex-col border-border/50 bg-card/80 backdrop-blur-sm">
+        <Card className="flex-1 min-h-0 my-3 flex flex-col card-elevated bg-card/90 backdrop-blur-sm">
           <CardHeader className="shrink-0 p-3 pb-2">
             <CardTitle className="text-base">
               Comentarios{data?.comments.length ? ` (${data.comments.length})` : ""}
@@ -481,20 +484,46 @@ export function CommentView() {
                             <span className="text-xs text-muted-foreground ml-2">{formatDateTime(c.createdAtUtc)}</span>
                           </div>
                           {c.isOwnComment && (
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleRemove(c.commentEntryKey)}
-                              disabled={removingKey === c.commentEntryKey}
-                              aria-label="Eliminar comentario"
-                              className="h-7 px-2 text-muted-foreground hover:text-destructive"
-                            >
-                              {removingKey === c.commentEntryKey ? (
-                                <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                              ) : (
-                                <Trash2 className="h-3.5 w-3.5" />
-                              )}
-                            </Button>
+                            <Popover>
+                              <PopoverTrigger asChild>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  disabled={removingKey === c.commentEntryKey}
+                                  aria-label="Eliminar comentario"
+                                  className="h-7 px-2 text-muted-foreground hover:text-destructive"
+                                >
+                                  {removingKey === c.commentEntryKey ? (
+                                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                  ) : (
+                                    <Trash2 className="h-3.5 w-3.5" />
+                                  )}
+                                </Button>
+                              </PopoverTrigger>
+                              <PopoverContent align="end" className="w-64 p-3.5 space-y-3">
+                                <div className="space-y-1">
+                                  <p className="text-sm font-medium leading-snug">¿Eliminar este comentario?</p>
+                                  <p className="text-xs text-muted-foreground leading-snug">
+                                    Dejará de verse para todos. No se puede deshacer.
+                                  </p>
+                                </div>
+                                <div className="flex justify-end gap-2">
+                                  <PopoverClose asChild>
+                                    <Button variant="ghost" size="sm" className="h-8">
+                                      Cancelar
+                                    </Button>
+                                  </PopoverClose>
+                                  <Button
+                                    variant="destructive"
+                                    size="sm"
+                                    className="h-8"
+                                    onClick={() => handleRemove(c.commentEntryKey)}
+                                  >
+                                    <Trash2 className="h-3.5 w-3.5" /> Eliminar
+                                  </Button>
+                                </div>
+                              </PopoverContent>
+                            </Popover>
                           )}
                         </div>
                         <p className="text-sm mt-0.5 whitespace-pre-wrap break-words">{c.commentText}</p>
@@ -510,7 +539,7 @@ export function CommentView() {
         {/* Tarjeta del compositor (FR5/FR6 + grabación de voz) -- fija abajo,
             siempre visible mientras el historial de arriba hace scroll. */}
         <div className="shrink-0 pb-3">
-          <Card className="border-border/50 bg-card/80 backdrop-blur-sm">
+          <Card className="card-elevated bg-card/90 backdrop-blur-sm">
             <CardHeader className="p-3 pb-2">
               <CardTitle className="text-base">Añadir un comentario</CardTitle>
             </CardHeader>
@@ -552,7 +581,7 @@ export function CommentView() {
                     setComposerMode("type");
                     setVoiceStage("idle");
                   }}
-                  className={`inline-flex items-center gap-1.5 rounded px-3 py-1.5 text-sm font-medium transition-colors ${
+                  className={`inline-flex h-8 items-center gap-1.5 rounded px-3 text-sm font-medium transition-colors ${
                     composerMode === "type" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
                   }`}
                   aria-pressed={composerMode === "type"}
@@ -565,7 +594,7 @@ export function CommentView() {
                     setComposerMode("record");
                     setCommentText("");
                   }}
-                  className={`inline-flex items-center gap-1.5 rounded px-3 py-1.5 text-sm font-medium transition-colors ${
+                  className={`inline-flex h-8 items-center gap-1.5 rounded px-3 text-sm font-medium transition-colors ${
                     composerMode === "record" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
                   }`}
                   aria-pressed={composerMode === "record"}
@@ -581,9 +610,10 @@ export function CommentView() {
                     value={commentText}
                     onChange={(e) => setCommentText(e.target.value)}
                     disabled={submitting || loading}
-                    className="min-h-[72px] max-h-[160px] overflow-y-auto scroll-subtle"
+                    className="min-h-[96px] max-h-[180px] overflow-y-auto scroll-subtle"
                   />
                   <Button
+                    size="sm"
                     onClick={handleSave}
                     disabled={submitting || loading || !commentText.trim() || !effectiveUsuario.trim()}
                     className="w-full sm:w-auto"
@@ -622,10 +652,11 @@ export function CommentView() {
                     onChange={(e) => setCommentText(e.target.value)}
                     disabled={submitting}
                     aria-label="Transcripción — edítala antes de guardar"
-                    className="min-h-[72px] max-h-[160px] overflow-y-auto scroll-subtle"
+                    className="min-h-[96px] max-h-[180px] overflow-y-auto scroll-subtle"
                   />
                   <div className="flex flex-col sm:flex-row gap-2">
                     <Button
+                      size="sm"
                       onClick={handleSave}
                       disabled={submitting || !commentText.trim() || !effectiveUsuario.trim()}
                       className="w-full sm:w-auto"
@@ -641,6 +672,7 @@ export function CommentView() {
                       )}
                     </Button>
                     <Button
+                      size="sm"
                       variant="outline"
                       onClick={() => {
                         setVoiceStage("idle");
@@ -651,7 +683,7 @@ export function CommentView() {
                     >
                       <RotateCcw className="h-4 w-4" /> Volver a grabar
                     </Button>
-                    <Button variant="ghost" onClick={discardRecording} disabled={submitting} className="w-full sm:w-auto">
+                    <Button size="sm" variant="ghost" onClick={discardRecording} disabled={submitting} className="w-full sm:w-auto">
                       <Trash2 className="h-4 w-4" /> Descartar
                     </Button>
                   </div>
