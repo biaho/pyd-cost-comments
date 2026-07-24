@@ -14,12 +14,22 @@
   tasks. It never touches IIS config or the co-hosted epm.pyd.es site.
 
   Before extracting, each target folder is cleared of everything except
-  .env / .env.local / node_modules / build output (.next or dist) -- this
-  is deliberate: Expand-Archive -Force only overwrites/adds files that
-  exist in the new zip, it never deletes ones that were removed from the
-  source (hit for real on 22/07/2026: a deleted src/components/AuthProvider.tsx
-  from an earlier bad deploy stayed on disk and broke the next build's
-  type-check even though nothing referenced it anymore).
+  .env / .env.local / node_modules (app also drops .next; data-api keeps
+  dist) -- this is deliberate: Expand-Archive -Force only overwrites/adds
+  files that exist in the new zip, it never deletes ones that were removed
+  from the source (hit for real on 22/07/2026: a deleted
+  src/components/AuthProvider.tsx from an earlier bad deploy stayed on disk
+  and broke the next build's type-check even though nothing referenced it
+  anymore).
+
+  The app's .next is wiped every time, not preserved (fixed 24/07/2026):
+  Next.js 16's Turbopack keeps a persistent build cache under .next/cache
+  that isn't always safely invalidated across two very different source
+  trees left in place across redeploys -- hit for real the same day, a
+  cosmetic frontend change (colors/scroll) rendered correctly locally but
+  not on the server after a redeploy that reused the old .next. A full
+  rebuild is slightly slower but guarantees the served output actually
+  matches the source that was just extracted.
 
 .PARAMETER DropFolder
   Where the zips + manifest were copied to. Default C:\deploy-drop.
@@ -178,10 +188,10 @@ try {
   Kill-Port 3000
   Kill-Port 4000
 
-  Write-Step "Clearing stale source (keeps .env / .env.local / node_modules / build output)"
-  Clear-DeployTarget -Path $AppPath -Preserve @('.env', '.env.local', 'node_modules', '.next')
+  Write-Step "Clearing stale source and app build cache (keeps .env / .env.local / node_modules)"
+  Clear-DeployTarget -Path $AppPath -Preserve @('.env', '.env.local', 'node_modules')
   Clear-DeployTarget -Path $DataApiPath -Preserve @('.env', '.env.local', 'node_modules', 'dist')
-  Write-Ok "Cleared $AppPath and $DataApiPath (source-only, deps/build output kept)"
+  Write-Ok "Cleared $AppPath (source + .next -- forces a clean rebuild) and $DataApiPath (source-only, dist kept)"
 
   Write-Step "Extracting bundles"
   Expand-Archive -Path $AppZip -DestinationPath $AppPath -Force
