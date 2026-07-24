@@ -189,9 +189,17 @@ try {
   Kill-Port 4000
 
   Write-Step "Clearing stale source and app build cache (keeps .env / .env.local / node_modules)"
-  Clear-DeployTarget -Path $AppPath -Preserve @('.env', '.env.local', 'node_modules')
+  # 'data-api' MUST be preserved here: it is a SUBFOLDER of $AppPath, so clearing
+  # the app would otherwise delete the entire data-api folder -- including its
+  # node_modules -- and the data-api clear below (which preserves node_modules)
+  # would never get the chance to run. That deletion was harmless as long as
+  # data-api happened to be reinstalled every redeploy, but the moment a redeploy
+  # skips data-api's npm install (manifest dataApi.depsChanged=false), the build
+  # fails with "Cannot find module 'express'". Hit for real 24/07/2026. The
+  # data-api Clear-DeployTarget on the next line does the real source cleanup.
+  Clear-DeployTarget -Path $AppPath -Preserve @('.env', '.env.local', 'node_modules', 'data-api')
   Clear-DeployTarget -Path $DataApiPath -Preserve @('.env', '.env.local', 'node_modules', 'dist')
-  Write-Ok "Cleared $AppPath (source + .next -- forces a clean rebuild) and $DataApiPath (source-only, dist kept)"
+  Write-Ok "Cleared $AppPath (source + .next, data-api subfolder kept intact) and $DataApiPath (source-only, node_modules/dist kept)"
 
   Write-Step "Extracting bundles"
   Expand-Archive -Path $AppZip -DestinationPath $AppPath -Force
