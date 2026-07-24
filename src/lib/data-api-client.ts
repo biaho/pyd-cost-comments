@@ -59,6 +59,9 @@ export interface UsageLogRow {
   createdAt: string;
 }
 
+/** Thrown when reportId isn't a registered dim_report row (404 from the Data API). */
+export class ReportNotFoundError extends Error {}
+
 async function callDataApi<T>(path: string, init?: RequestInit): Promise<T> {
   const baseUrl = process.env.DATA_API_URL;
   const apiKey = process.env.DATA_API_KEY;
@@ -77,13 +80,17 @@ async function callDataApi<T>(path: string, init?: RequestInit): Promise<T> {
 
   if (!res.ok) {
     const body = await res.text().catch(() => '');
+    if (res.status === 404) throw new ReportNotFoundError(body || 'Informe no registrado.');
     throw new Error(`Data API ${path} failed (${res.status}): ${body}`);
   }
 
   return res.json() as Promise<T>;
 }
 
-export async function resolveReport(reportId: string, reportName?: string): Promise<number> {
+/** reportId is numeric (see db/migrations/007_numeric_report_id.sql); reportName, when
+ *  present, is TARGIT's own live report title, recorded server-side as a monitoring
+ *  snapshot only -- never used to create or rename a dim_report row. */
+export async function resolveReport(reportId: number, reportName?: string): Promise<number> {
   const { reportKey } = await callDataApi<{ reportKey: number }>('/report/resolve', {
     method: 'POST',
     body: JSON.stringify({ reportId, reportName }),

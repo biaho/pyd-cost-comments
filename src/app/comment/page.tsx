@@ -39,10 +39,14 @@ async function TestModeValidation({
 
   let report: { ok: true; reportKey: number } | { ok: false; error: string } | null = null;
   if (reportId) {
-    try {
-      report = { ok: true, reportKey: await resolveReport(reportId) };
-    } catch (err) {
-      report = { ok: false, error: err instanceof Error ? err.message : String(err) };
+    if (!/^\d+$/.test(reportId)) {
+      report = { ok: false, error: "reportId debe ser numérico (ver db/migrations/007_numeric_report_id.sql)." };
+    } else {
+      try {
+        report = { ok: true, reportKey: await resolveReport(Number(reportId)) };
+      } catch (err) {
+        report = { ok: false, error: err instanceof Error ? err.message : String(err) };
+      }
     }
   }
 

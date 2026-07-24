@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { parseContext, ContextValidationError } from '@/lib/context';
 import { resolveIdentity, AuthError } from '@/lib/auth';
-import { resolveReport, resolveUser, resolveProduct, loadComments, saveComment, softDeleteComment, type CommentRow } from '@/lib/data-api-client';
+import { resolveReport, resolveUser, resolveProduct, loadComments, saveComment, softDeleteComment, ReportNotFoundError, type CommentRow } from '@/lib/data-api-client';
 
 function withOwnership(comments: CommentRow[], currentUserKey: number) {
   return comments.map(({ appUserKey, ...rest }) => ({ ...rest, isOwnComment: appUserKey === currentUserKey }));
@@ -26,6 +26,9 @@ export async function GET(req: NextRequest) {
     }
     if (err instanceof ContextValidationError) {
       return NextResponse.json({ error: err.message }, { status: 400 });
+    }
+    if (err instanceof ReportNotFoundError) {
+      return NextResponse.json({ error: 'Informe no reconocido. Contacta con el equipo de DWH para registrarlo.' }, { status: 404 });
     }
     console.error(err);
     return NextResponse.json({ error: 'Fallo de conexión o consulta a la base de datos.' }, { status: 500 });
@@ -73,6 +76,9 @@ export async function POST(req: NextRequest) {
     if (err instanceof ContextValidationError) {
       return NextResponse.json({ error: err.message }, { status: 400 });
     }
+    if (err instanceof ReportNotFoundError) {
+      return NextResponse.json({ error: 'Informe no reconocido. Contacta con el equipo de DWH para registrarlo.' }, { status: 404 });
+    }
     console.error(err);
     return NextResponse.json({ error: 'Error al guardar el comentario.' }, { status: 500 });
   }
@@ -108,6 +114,9 @@ export async function DELETE(req: NextRequest) {
     }
     if (err instanceof ContextValidationError) {
       return NextResponse.json({ error: err.message }, { status: 400 });
+    }
+    if (err instanceof ReportNotFoundError) {
+      return NextResponse.json({ error: 'Informe no reconocido. Contacta con el equipo de DWH para registrarlo.' }, { status: 404 });
     }
     console.error(err);
     return NextResponse.json({ error: 'Error al eliminar el comentario.' }, { status: 500 });

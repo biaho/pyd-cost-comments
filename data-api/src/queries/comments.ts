@@ -24,26 +24,51 @@ export interface CommentRow {
   appUserKey: number;
 }
 
-/** Resolve FR: find dim_report by reportId, create it if this is the first time we see it. */
-export async function resolveReport(pool: ConnectionPool, reportId: string, reportName?: string): Promise<number> {
+/**
+ * Thrown when a reportId isn't a registered dim_report row (or is
+ * deactivated). Reports are now DWH-registered ahead of time -- inserted
+ * directly into dim_report before a report's TARGIT webbox URL is wired up
+ * (see db/migrations/007_numeric_report_id.sql) -- so an unrecognized id is
+ * a real error to surface, not something to silently auto-create.
+ */
+export class ReportNotFoundError extends Error {}
+
+/**
+ * Resolve FR: find dim_report by its numeric reportId. reportName, when
+ * present, is TARGIT's own live report title ({$Title}) -- recorded as a
+ * monitoring snapshot only (targit_title_last_seen), never used to create or
+ * rename a row. Best-effort: a failed snapshot update never blocks the
+ * resolve itself.
+ */
+export async function resolveReport(pool: ConnectionPool, reportId: number, reportName?: string): Promise<number> {
   const existing = await pool
     .request()
     .input('reportId', reportId)
-    .query('SELECT report_key FROM dim_report WHERE report_id = @reportId');
+    .query('SELECT report_key FROM dim_report WHERE report_id = @reportId AND is_active = 1');
 
-  if (existing.recordset.length > 0) {
-    return existing.recordset[0].report_key as number;
+  if (existing.recordset.length === 0) {
+    throw new ReportNotFoundError(`Informe no registrado o inactivo: reportId=${reportId}`);
   }
 
-  const created = await pool
-    .request()
-    .input('reportId', reportId)
-    .input('reportName', reportName ?? reportId)
-    .query(
-      'INSERT INTO dim_report (report_id, report_name) OUTPUT INSERTED.report_key VALUES (@reportId, @reportName)'
-    );
+  const reportKey = existing.recordset[0].report_key as number;
 
-  return created.recordset[0].report_key as number;
+  if (reportName) {
+    try {
+      await pool
+        .request()
+        .input('reportKey', reportKey)
+        .input('reportName', reportName)
+        .query(
+          `UPDATE dim_report
+           SET targit_title_last_seen = @reportName, targit_title_last_seen_at_utc = SYSUTCDATETIME()
+           WHERE report_key = @reportKey`
+        );
+    } catch (err) {
+      console.error('Non-fatal: failed to update targit_title_last_seen', err);
+    }
+  }
+
+  return reportKey;
 }
 
 /**

@@ -50,7 +50,9 @@ export function normalizePeriodId(raw: string | null | undefined): string | null
 }
 
 export interface ReportContext {
-  reportId: string;
+  /** Numeric, opaque report code (db/migrations/007_numeric_report_id.sql) -- never a
+   *  descriptive name, so the TARGIT URL never exposes a readable report identity. */
+  reportId: number;
   productId: string;
   /** Normalized YYYYMM. Required: a comment always belongs to one month. */
   periodId: string;
@@ -72,14 +74,15 @@ export function parseContext(params: URLSearchParams | Record<string, string | n
     return value ?? undefined;
   };
 
-  const reportId = get('reportId');
+  const reportIdRaw = get('reportId');
   const productId = get('productId');
   const reportName = get('reportName');
   const periodId = normalizePeriodId(get('date'));
 
-  if (!reportId) throw new ContextValidationError('Falta el parámetro obligatorio: reportId');
+  if (!reportIdRaw) throw new ContextValidationError('Falta el parámetro obligatorio: reportId');
+  if (!/^\d+$/.test(reportIdRaw)) throw new ContextValidationError('reportId debe ser numérico');
   if (!productId) throw new ContextValidationError('Falta el parámetro obligatorio: productId');
   if (!periodId) throw new ContextValidationError('Falta el parámetro obligatorio: date (mes seleccionado)');
 
-  return { reportId, productId, periodId, reportName };
+  return { reportId: Number(reportIdRaw), productId, periodId, reportName };
 }

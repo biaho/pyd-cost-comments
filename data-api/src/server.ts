@@ -8,6 +8,7 @@ import {
   loadComments,
   saveComment,
   softDeleteComment,
+  ReportNotFoundError,
   type Identity,
   type SaveCommentParams,
 } from './queries/comments';
@@ -26,13 +27,16 @@ app.use(requireApiKey);
 
 app.post('/report/resolve', async (req: Request, res: Response) => {
   try {
-    const { reportId, reportName } = req.body as { reportId: string; reportName?: string };
-    if (!reportId) return void res.status(400).json({ error: 'Missing reportId.' });
+    const { reportId, reportName } = req.body as { reportId: number; reportName?: string };
+    if (!Number.isInteger(reportId)) return void res.status(400).json({ error: 'Missing or invalid reportId.' });
 
     const pool = await getPool();
     const reportKey = await resolveReport(pool, reportId, reportName);
     res.json({ reportKey });
   } catch (err) {
+    if (err instanceof ReportNotFoundError) {
+      return void res.status(404).json({ error: err.message });
+    }
     console.error(err);
     res.status(500).json({ error: 'DB error resolving report.' });
   }
