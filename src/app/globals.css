@@ -144,3 +144,24 @@
     0 1px 3px 0 rgba(0, 0, 0, 0.35),
     0 1px 0 0 rgba(255, 255, 255, 0.04) inset;
 }
+
+/* Legacy-browser-safe colour tints (no color-mix()).
+   TARGIT's report webbox embeds a pre-111 Chromium with no CSS color-mix()
+   support, so Tailwind v4's `/opacity` colour utilities (bg-primary/10,
+   border-primary/40, bg-destructive/10, ...) fall back to their SOLID first
+   rule there -- turning translucent amber/red pills into solid blocks whose
+   same-colour text becomes invisible (hit for real 24/07/2026: only broken
+   inside TARGIT, never in a modern dev browser). These rgba() tints render
+   identically in modern and legacy engines, so the badges and error banner
+   keep their intended see-through look everywhere. Unlayered on purpose so
+   they beat Tailwind's layered utilities without !important.
+   (--primary #f6a823 = 246 168 35, --destructive #dc2828 = 220 40 40.) */
+.tint-primary {
+  background-color: rgba(246, 168, 35, 0.12);
+  border-color: rgba(246, 168, 35, 0.45);
+}
+
+.tint-destructive {
+  background-color: rgba(220, 40, 40, 0.12);
+  border-color: rgba(220, 40, 40, 0.5);
+}

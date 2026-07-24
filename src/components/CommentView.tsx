@@ -339,7 +339,7 @@ export function CommentView() {
             <p className="text-muted-foreground">Para empezar:</p>
 
             <div className="flex items-start gap-3">
-              <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-semibold text-primary">
+              <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full tint-primary text-xs font-semibold text-primary">
                 1
               </span>
               <p className="text-foreground">
@@ -349,7 +349,7 @@ export function CommentView() {
             </div>
 
             <div className="flex items-start gap-3">
-              <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-semibold text-primary">
+              <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full tint-primary text-xs font-semibold text-primary">
                 2
               </span>
               <p className="text-foreground">
@@ -370,7 +370,7 @@ export function CommentView() {
   const isReviewingTranscript = composerMode === "record" && voiceStage === "review";
 
   return (
-    <div className="h-dvh flex flex-col bg-background overflow-hidden">
+    <div className="h-screen flex flex-col bg-background overflow-hidden">
       {/* Cabecera */}
       <header className="shrink-0 border-b border-border/50 bg-background/95 backdrop-blur-sm">
         <div className="max-w-2xl mx-auto px-4 py-2.5 flex items-center justify-between gap-3">
@@ -405,11 +405,11 @@ export function CommentView() {
                     </span>
 
                     <div className="flex items-center gap-1.5">
-                      <span className="flex items-center gap-1 rounded-full border border-primary/40 bg-primary/10 px-2 py-0.5 text-xs font-mono font-semibold text-primary">
+                      <span className="flex items-center gap-1 rounded-full border tint-primary px-2 py-0.5 text-xs font-mono font-semibold text-primary">
                         <SprayCan className="h-3 w-3 shrink-0" />
                         {productId}
                       </span>
-                      <span className="flex items-center gap-1 rounded-full border border-primary/40 bg-primary/10 px-2 py-0.5 text-xs font-mono font-semibold text-primary">
+                      <span className="flex items-center gap-1 rounded-full border tint-primary px-2 py-0.5 text-xs font-mono font-semibold text-primary">
                         <CalendarDays className="h-3 w-3 shrink-0" />
                         {formatPeriod(periodId)}
                       </span>
@@ -431,7 +431,7 @@ export function CommentView() {
           </Card>
 
           {error && (
-            <Card className="mt-2 border-destructive/50 bg-destructive/10">
+            <Card className="mt-2 tint-destructive">
               <CardContent className="p-3 flex items-center gap-2 text-sm text-destructive">
                 <AlertCircle className="h-4 w-4 shrink-0" />
                 {error}
