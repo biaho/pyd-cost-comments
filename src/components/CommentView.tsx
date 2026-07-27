@@ -27,6 +27,7 @@ import {
   RotateCcw,
   User,
   SprayCan,
+  Menu,
 } from "lucide-react";
 
 interface ApiComment {
@@ -358,7 +359,13 @@ export function CommentView() {
             </div>
 
             <p className="border-t border-border/50 pt-3 text-muted-foreground">
-              ¿La columna <strong className="text-foreground">Comentarios</strong> muestra un contador de notas que ya han sido guardadas para ese producto (fila) y que pueden estar asociadas y repartidas en los diferentes periodos mostrados en el informe.
+              En el informe, algunas celdas muestran un icono como{" "}
+              <span className="inline-flex items-center gap-1 rounded-md bg-black/60 border border-border/50 px-1.5 py-0.5 align-middle">
+                <span className="text-primary font-bold text-sm leading-none">1</span>
+                <Menu className="h-3.5 w-3.5 text-primary" />
+              </span>{" "}
+              junto al valor, indicando que ya existe al menos un comentario. El número que se visualiza es el
+              total de comentarios guardados para esa celda.
             </p>
           </CardContent>
         </Card>
