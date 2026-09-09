@@ -60,6 +60,9 @@ interface ApiResponse {
 
 type ComposerMode = "type" | "record";
 
+/** Voice/mic recording disabled pending TARGIT support case on iframe mic-permission loss (webbox embedding drops getUserMedia's browser prompt). Flip to true once resolved. */
+const SHOW_VOICE_MODE = false;
+
 function initials(name: string): string {
   return name
     .trim()
@@ -580,35 +583,37 @@ export function CommentView() {
               )}
 
               {/* Selector de modo: Escribir / Grabar */}
-              <div className="inline-flex rounded-md border border-border/50 bg-secondary/30 p-1">
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (voiceStage === "recording") discardRecording();
-                    setComposerMode("type");
-                    setVoiceStage("idle");
-                  }}
-                  className={`inline-flex h-8 items-center gap-1.5 rounded px-3 text-sm font-medium transition-colors ${
-                    composerMode === "type" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
-                  }`}
-                  aria-pressed={composerMode === "type"}
-                >
-                  <Keyboard className="h-3.5 w-3.5" /> Escribir
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setComposerMode("record");
-                    setCommentText("");
-                  }}
-                  className={`inline-flex h-8 items-center gap-1.5 rounded px-3 text-sm font-medium transition-colors ${
-                    composerMode === "record" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
-                  }`}
-                  aria-pressed={composerMode === "record"}
-                >
-                  <Mic className="h-3.5 w-3.5" /> Grabar
-                </button>
-              </div>
+              {SHOW_VOICE_MODE && (
+                <div className="inline-flex rounded-md border border-border/50 bg-secondary/30 p-1">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (voiceStage === "recording") discardRecording();
+                      setComposerMode("type");
+                      setVoiceStage("idle");
+                    }}
+                    className={`inline-flex h-8 items-center gap-1.5 rounded px-3 text-sm font-medium transition-colors ${
+                      composerMode === "type" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
+                    }`}
+                    aria-pressed={composerMode === "type"}
+                  >
+                    <Keyboard className="h-3.5 w-3.5" /> Escribir
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setComposerMode("record");
+                      setCommentText("");
+                    }}
+                    className={`inline-flex h-8 items-center gap-1.5 rounded px-3 text-sm font-medium transition-colors ${
+                      composerMode === "record" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
+                    }`}
+                    aria-pressed={composerMode === "record"}
+                  >
+                    <Mic className="h-3.5 w-3.5" /> Grabar
+                  </button>
+                </div>
+              )}
 
               {composerMode === "type" && (
                 <>
